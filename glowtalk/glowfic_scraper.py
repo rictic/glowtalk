@@ -8,34 +8,6 @@ from sqlalchemy.orm import Session
 from .models import OriginalWork, Part, ContentPiece
 from .segment import segment
 
-@dataclass
-class Post:
-    """Represents a single post in a Glowfic story"""
-    character: Optional[str]
-    screenname: Optional[str]
-    author: Optional[str]
-    content: str
-
-    def __str__(self) -> str:
-        """Pretty string representation of the post"""
-        return (
-            f"Post by {self.character or 'Unknown Character'}\n"
-            f"Screen name: {self.screenname or 'N/A'}\n"
-            f"Author: {self.author or 'Unknown'}\n"
-            f"\nContent:\n{self.content}\n"
-        )
-
-@dataclass
-class Glowfic:
-    """Represents a Glowfic story"""
-    posts: List[Post]
-    scraped_at: datetime.datetime
-
-    def characters(self) -> set[Optional[str]]:
-        """Returns a set of all characters in the story"""
-        return set(post.character for post in self.posts)
-
-
 def _process_content_node(node) -> str:
     # Handle different node types
     if isinstance(node, str):
@@ -50,9 +22,20 @@ def _process_content_node(node) -> str:
         return '\n'
 
     # For all other tags, just process their children
-    return ''.join(filter(None, (_process_content_node(child) for child in node.children)))
+    return ' '.join(filter(None, (_process_content_node(child) for child in node.children)))
 
-def scrape_post(post_id: int, db: Session) -> Glowfic:
+def get_or_scrape_post(post_id: int, db: Session) -> OriginalWork:
+    url = f"https://glowfic.com/posts/{post_id}?view=flat"
+    # get the original work with this url that has the most recent scrape date
+    original_work = db.query(OriginalWork)\
+        .filter(OriginalWork.url == url)\
+        .order_by(OriginalWork.scrape_date.desc())\
+        .first()
+    if original_work:
+        return original_work
+    return scrape_post(post_id, db)
+
+def scrape_post(post_id: int, db: Session) -> OriginalWork:
     """
     Scrapes a Glowfic post and returns a list of all replies with their metadata.
 
@@ -60,7 +43,7 @@ def scrape_post(post_id: int, db: Session) -> Glowfic:
         post_id: The ID of the post to scrape
 
     Returns:
-        List of Post objects containing character, screenname, author, and content for each reply
+        OriginalWork object
     """
     url = f"https://glowfic.com/posts/{post_id}?view=flat"
     response = requests.get(url)
@@ -68,56 +51,7 @@ def scrape_post(post_id: int, db: Session) -> Glowfic:
 
     soup = BeautifulSoup(response.text, 'html.parser')
 
-    # create original work
-    original_work = OriginalWork(url=url)
-    db.add(original_work)
-
-    results = []
-    posts = soup.find_all('div', class_=['post-post', 'post-reply'])
-    for post in posts:
-        part = Part(original_work=original_work, position=len(original_work.parts))
-        db.add(part)
-        try:
-            # Extract the post info
-            info_box = post.find('div', class_='post-info-text')
-            character = info_box.find('div', class_='post-character')
-            if character:
-                part.character = character.text.strip()
-
-            post_icon = info_box.find('div', class_='post-icon')
-            if post_icon:
-                post_icon_img = post_icon.find('img', class_='icon')
-                if post_icon_img:
-                    part.icon_url = post_icon_img['src']
-                    part.icon_title = post_icon_img['title']
-
-            screenname = info_box.find('div', class_='post-screenname')
-            if screenname:
-                part.screenname = screenname.text.strip()
-
-            author = info_box.find('div', class_='post-author')
-            if author:
-                part.author = author.text.strip()
-
-            # Extract content and preserve formatting
-            content_div = post.find('div', class_='post-content')
-            content = _process_content_node(content_div).strip()
-            # Remove any multiple consecutive newlines (more than 2)
-            content = re.sub(r'\n{3,}', '\n\n', content)
-
-            results.append(Post(
-                character=character,
-                screenname=screenname,
-                author=author,
-                content=content
-            ))
-        except Exception as e:
-            print(f"Error scraping post: {e}")
-            print(f"Post HTML: {post}")
-            raise
-
-    db.commit()
-    return Glowfic(posts=results, scraped_at=datetime.datetime.now())
+    return create_from_glowfic(url, db, soup)
 
 def create_from_glowfic(url: str, db: Session, soup: BeautifulSoup) -> OriginalWork:
     """Creates an original work from a Glowfic page"""
@@ -136,7 +70,7 @@ def create_from_glowfic(url: str, db: Session, soup: BeautifulSoup) -> OriginalW
                 part.character = character.text.strip()
 
 
-            post_icon = info_box.find('div', class_='post-icon')
+            post_icon = post.find('div', class_='post-icon')
             if post_icon:
                 post_icon_img = post_icon.find('img', class_='icon')
                 if post_icon_img:
@@ -169,5 +103,3 @@ def create_from_glowfic(url: str, db: Session, soup: BeautifulSoup) -> OriginalW
             raise
     db.commit()
     return original_work
-
-

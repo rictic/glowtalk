@@ -30,6 +30,6 @@ def test_tricky():
     "The dove, whose name she remembers perfectly well, perched on the desk to her right.",
     "An angel, formerly wielding a note pad and pen but now looking attentively at the judge.",
     "A great wheel of gears and eyes, gleaming with fire or gemstones depending on the light.",
-    "Each advocate has a human-size desk, regardless of whether using it means \"perched on\" or \"leaning at.\"",
+    "Each advocate has a human-size desk, regardless of whether using it means perched on or leaning at.",
     "And, studiously ignoring everyone else, a devil."
   ]

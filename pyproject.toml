@@ -10,7 +10,13 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
 authors = []
-dependencies = ["tts>=0.22.0", "beautifulsoup4>=4.12.3", "sqlalchemy>=2.0.36"]
+dependencies = [
+    "tts>=0.22.0",
+    "beautifulsoup4>=4.12.3",
+    "sqlalchemy>=2.0.36",
+    "pysbd>=0.3.1",
+    "alembic>=1.14.0",
+]
 
 [project.scripts]
 glowtalk = "glowtalk.cli:main"

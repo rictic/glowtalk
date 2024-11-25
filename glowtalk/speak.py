@@ -4,7 +4,6 @@ from pathlib import Path
 import tempfile
 import torch
 from TTS.api import TTS
-from .audiobook import Reader
 import pysbd
 
 def get_unique_filename() -> Path:
@@ -36,38 +35,23 @@ def get_unique_filename() -> Path:
 segmenter = pysbd.Segmenter(language="en", clean=True)
 
 class Speaker:
-  def __init__(self):
+  def __init__(self, model: str):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cpu":
       print("pytorch isn't happy with your cuda so this will be slower")
 
+    if model != "tts_models/multilingual/multi-dataset/xtts_v2":
+        raise ValueError(f"Unsupported model: {model}")
     self.tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
-  def speak(self, text: str, reader: Reader, language="en", **kwargs) -> list[Path]:
-    segments = segmenter.segment(normalize_text(text))
-    filenames = []
-    for segment in segments:
-      filename = get_unique_filename()
-      self.tts.tts_to_file(
-          text=normalize_text(text),
-          speaker_wav=reader.reference_path,
-          language=language,
-          file_path=filename,
-          **kwargs
-      )
-      filenames.append(filename)
-    return filenames
+  def speak(self, text: str, speaker_wav: Path, language="en", **kwargs) -> list[Path]:
+    filename = get_unique_filename()
+    self.tts.tts_to_file(
+        text=text,
+        speaker_wav=speaker_wav,
+        language=language,
+        file_path=filename,
+        **kwargs
+    )
+    return filename
 
-def normalize_text(text: str) -> str:
-  # Remove non-alphanumeric characters
-  text = re.sub(r"[^a-zA-Z0-9\s\.\,\!\?\'\-\(\)\:]", "", text)
-  # Move isolated punctuation to attach to previous word if possible
-  text = re.sub(r'(\w)\s+([.!?,\'-]+)(?=\s|$)', r'\1\2', text)  # "word !" -> "word!"
-  # Remove any remaining standalone punctuation
-  text = re.sub(r'^([.!?,\'-]+)(?=\s|$)', '', text)    # Remove punctuation at start
-  text = re.sub(r'\s+([.!?,\'-]+)(?=\s|$)', '', text)  # Remove any remaining isolated punctuation
-  # Clean up any resulting multiple spaces
-  text = re.sub(r'\s+', ' ', text)
-  # Trim leading/trailing whitespace
-  text = text.strip()
-  return text

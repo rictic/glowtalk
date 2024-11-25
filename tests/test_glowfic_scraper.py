@@ -2,7 +2,7 @@ import pytest
 from bs4 import BeautifulSoup
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-from glowtalk.models import Base
+from glowtalk.models import Base, ContentPiece
 from glowtalk.glowfic_scraper import create_from_glowfic
 
 @pytest.fixture
@@ -97,3 +97,6 @@ def test_create_from_glowfic(db_session: Session, mock_glowfic_html: str):
         "This is a reply.",
         "With formatted text."
     ]
+
+    # we should have six content pieces that should be voiced
+    assert ContentPiece.get_unvoiced(db_session).count() == 6
