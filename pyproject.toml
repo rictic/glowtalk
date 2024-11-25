@@ -9,11 +9,14 @@ description = "Generate audiobooks for Glowfics"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
-authors = [
-]
+authors = []
+dependencies = ["tts>=0.22.0", "beautifulsoup4>=4.12.3", "sqlalchemy>=2.0.36"]
 
 [project.scripts]
 glowtalk = "glowtalk.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["glowtalk"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3.3", "pytest-watch>=4.2.0"]

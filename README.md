@@ -5,7 +5,7 @@ Generate audiobooks for glowfics
 ## Installation
 
 ```bash
-pip install glowtalk
+uv pip install glowtalk
 ```
 
 ## Usage
@@ -17,6 +17,8 @@ glowtalk
 To install development dependencies and build the package:
 
 ```bash
+uv venv
+source .venv/bin/activate
 uv pip install hatch
 uv pip install -e .
 ```
