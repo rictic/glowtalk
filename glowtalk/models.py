@@ -115,11 +115,16 @@ class Audiobook(Base):
     id = Column(Integer, primary_key=True)
     original_work_id = Column(Integer, ForeignKey('original_works.id'), nullable=False)
     default_speaker_id = Column(Integer, ForeignKey('speakers.id'), nullable=True)
+    description = Column(String, nullable=True)
+    forked_from_id = Column(Integer, ForeignKey('audiobooks.id'), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
     original_work = relationship("OriginalWork", back_populates="audiobooks")
     default_speaker = relationship("Speaker", foreign_keys=[default_speaker_id])
     character_voices = relationship("CharacterVoice", back_populates="audiobook")
+    forked_from = relationship("Audiobook", remote_side=[id])
+    queue_items = relationship("WorkQueue", back_populates="audiobook")
 
 class VoicePerformance(Base):
     __tablename__ = 'voice_performances'
@@ -132,6 +137,7 @@ class VoicePerformance(Base):
     audio_file_hash = Column(String, nullable=False)
     is_preferred = Column(Boolean, default=False)
     generation_date = Column(DateTime, default=datetime.utcnow)
+    worker_id = Column(String, nullable=True)
 
     # Relationships
     audiobook = relationship("Audiobook")
@@ -208,3 +214,21 @@ class CharacterVoice(Base):
         else:
             assert existing.speaker == speaker
         return existing
+
+class WorkQueue(Base):
+    __tablename__ = 'work_queue'
+
+    id = Column(Integer, primary_key=True)
+    content_piece_id = Column(Integer, ForeignKey('content_pieces.id'), nullable=False)
+    audiobook_id = Column(Integer, ForeignKey('audiobooks.id'), nullable=False)
+    priority = Column(Integer, default=0)  # Higher number = higher priority
+    status = Column(Enum('pending', 'in_progress', 'completed', 'failed', name='queue_status'), default='pending')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    worker_id = Column(String, nullable=True)  # ID of the worker processing this item
+    error_message = Column(String, nullable=True)
+
+    # Relationships
+    content_piece = relationship("ContentPiece")
+    audiobook = relationship("Audiobook")
