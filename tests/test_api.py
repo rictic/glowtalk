@@ -66,10 +66,10 @@ def sample_speaker(db_session, test_cwd):
     ref_path = test_cwd / "references" / "test_speaker.wav"
     ref_path.write_bytes(b"fake audio data")
 
-    speaker = Speaker(
-        model=SpeakerModel.XTTS_v2,
-        reference_audio_path=str(ref_path),
-        reference_audio_hash="fake_hash"
+    speaker = Speaker.get_or_create(
+        db_session,
+        "test_speaker",
+        SpeakerModel.XTTS_v2
     )
     db_session.add(speaker)
     db_session.commit()

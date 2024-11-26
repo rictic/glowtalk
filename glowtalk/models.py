@@ -150,22 +150,60 @@ class SpeakerModel(enum.Enum):
 
 _speaker_model = None
 
+class ReferenceVoice(Base):
+    __tablename__ = 'reference_voices'
+
+    id = Column(Integer, primary_key=True)
+    audio_path = Column(String, nullable=False)
+    audio_hash = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    transcript = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    speakers = relationship("Speaker", back_populates="reference_voice")
+
+    @classmethod
+    def get_or_create(cls, session, audio_path, description=None, transcript=None):
+        """Get or create a reference voice from an audio file"""
+        if not os.path.exists(audio_path):
+            raise ValueError(f"Reference audio file not found: {audio_path}")
+
+        reference = session.query(cls).filter_by(audio_path=audio_path).first()
+        if not reference:
+            audio_hash = hashlib.sha256(open(audio_path, "rb").read()).hexdigest()
+            reference = cls(
+                audio_path=audio_path,
+                audio_hash=audio_hash,
+                description=description,
+                transcript=transcript
+            )
+            session.add(reference)
+        return reference
+
 class Speaker(Base):
     __tablename__ = 'speakers'
 
     id = Column(Integer, primary_key=True)
     model = Column(Enum(SpeakerModel), nullable=False)
-    reference_audio_path = Column(String, nullable=False)
-    reference_audio_hash = Column(String, nullable=False)
+    reference_voice_id = Column(Integer, ForeignKey('reference_voices.id'), nullable=False)
 
-    def get_or_create(session, name, model):
+    # Relationships
+    reference_voice = relationship("ReferenceVoice", back_populates="speakers")
+
+    @classmethod
+    def get_or_create(cls, session, name, model, description=None, transcript=None):
         reference_audio_path = f"references/{name}.wav"
-        if not os.path.exists(reference_audio_path):
-            raise ValueError(f"Reference audio file not found for {name}")
-        speaker = session.query(Speaker).filter_by(reference_audio_path=reference_audio_path).first()
+        reference_voice = ReferenceVoice.get_or_create(
+            session,
+            reference_audio_path,
+            description=description,
+            transcript=transcript
+        )
+
+        speaker = session.query(cls).filter_by(reference_voice=reference_voice).first()
         if not speaker:
-            audio_hash = hashlib.sha256(open(reference_audio_path, "rb").read()).hexdigest()
-            speaker = Speaker(model=model, reference_audio_path=reference_audio_path, reference_audio_hash=audio_hash)
+            speaker = cls(model=model, reference_voice=reference_voice)
             session.add(speaker)
         return speaker
 
@@ -174,7 +212,7 @@ class Speaker(Base):
         if not _speaker_model:
             import glowtalk.speak
             _speaker_model = glowtalk.speak.Speaker(model=self.model.value)
-        audio_path = _speaker_model.speak(content_piece.text, self.reference_audio_path)
+        audio_path = _speaker_model.speak(content_piece.text, self.reference_voice.audio_path)
         audio_hash = hashlib.sha256(open(audio_path, "rb").read()).hexdigest()
         performance = VoicePerformance(
             audiobook=audiobook,

@@ -54,8 +54,6 @@ class CharacterVoiceResponse(BaseModel):
 class SpeakerResponse(BaseModel):
     id: int
     model: str
-    reference_audio_path: str
-    reference_audio_hash: str
 
     model_config = ConfigDict(from_attributes=True)
 
