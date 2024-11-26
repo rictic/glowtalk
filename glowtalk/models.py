@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, UniqueConstraint, Enum
 import enum
+from pathlib import Path
 from typing import Optional
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.ext.orderinglist import ordering_list
@@ -164,16 +165,21 @@ class ReferenceVoice(Base):
     speakers = relationship("Speaker", back_populates="reference_voice")
 
     @classmethod
-    def get_or_create(cls, session, audio_path, description=None, transcript=None):
+    def get_or_create(cls, session: Session, audio_path: Path, description=None, transcript=None):
         """Get or create a reference voice from an audio file"""
-        if not os.path.exists(audio_path):
+        # Check that the path is a Path
+        if not isinstance(audio_path, Path):
+            raise ValueError(f"audio_path must be a Path, not {type(audio_path)}")
+        if not audio_path.exists():
             raise ValueError(f"Reference audio file not found: {audio_path}")
+        # normalize the path
+        audio_path = audio_path.resolve()
 
-        reference = session.query(cls).filter_by(audio_path=audio_path).first()
+        reference = session.query(cls).filter_by(audio_path=str(audio_path)).first()
         if not reference:
             audio_hash = hashlib.sha256(open(audio_path, "rb").read()).hexdigest()
             reference = cls(
-                audio_path=audio_path,
+                audio_path=str(audio_path),
                 audio_hash=audio_hash,
                 description=description,
                 transcript=transcript
@@ -192,8 +198,8 @@ class Speaker(Base):
     reference_voice = relationship("ReferenceVoice", back_populates="speakers")
 
     @classmethod
-    def get_or_create(cls, session, name, model, description=None, transcript=None):
-        reference_audio_path = f"references/{name}.wav"
+    def get_or_create(cls, session: Session, name: str, model: SpeakerModel, description=None, transcript=None):
+        reference_audio_path = Path(os.getcwd()) / "references" / f"{name}.wav"
         reference_voice = ReferenceVoice.get_or_create(
             session,
             reference_audio_path,
@@ -213,6 +219,8 @@ class Speaker(Base):
             import glowtalk.speak
             _speaker_model = glowtalk.speak.Speaker(model=self.model.value)
         audio_path = _speaker_model.speak(content_piece.text, self.reference_voice.audio_path)
+        # normalize the path
+        audio_path = audio_path.resolve()
         audio_hash = hashlib.sha256(open(audio_path, "rb").read()).hexdigest()
         performance = VoicePerformance(
             audiobook=audiobook,
