@@ -90,12 +90,20 @@ def create_from_glowfic(url: str, db: Session, soup: BeautifulSoup) -> OriginalW
             content_div = post.find('div', class_='post-content')
             content = _process_content_node(content_div).strip()
             by_lines = content.split('\n')
+            voiced_line_count = 0
             for line in by_lines:
                 if line:
                     for seg in segment(line):
+                        if seg == '':
+                            continue
                         db.add(ContentPiece(part=part, text=seg, should_voice=True))
+                        voiced_line_count += 1
                 # add an unvoiced newline after
                 db.add(ContentPiece(part=part, text='\n', should_voice=False))
+
+            if voiced_line_count == 0:
+                content = "(Audio note: this post is empty, perhaps as if to convey a silent look, or a pause)"
+                db.add(ContentPiece(part=part, text=content, should_voice=True))
 
         except Exception as e:
             print(f"Error scraping post: {e}")

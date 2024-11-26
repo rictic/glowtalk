@@ -1,7 +1,8 @@
 import json
+from sqlalchemy.orm import Session
 from glowtalk import glowfic_scraper, database, models
 
-def create_audiobook(db) -> models.Audiobook:
+def create_audiobook(db: Session) -> models.Audiobook:
     speaking_model = models.SpeakerModel.XTTS_v2
     original_work = glowfic_scraper.get_or_scrape_post(6782, db)
     judith = models.Speaker.get_or_create(db, name="Judith", model=speaking_model)
@@ -26,13 +27,17 @@ def create_audiobook(db) -> models.Audiobook:
     db.commit()
     return audiobook
 
-def generate_audiobook(db, audiobook: models.Audiobook):
+def generate_audiobook(db: Session, audiobook: models.Audiobook):
     while True:
         unvoiced: models.ContentPiece = models.ContentPiece.get_unvoiced(db).first()
         if not unvoiced:
             break
-        performance = unvoiced.perform_for_audiobook(db, audiobook)
-        db.commit()
+        try:
+            unvoiced.perform_for_audiobook(db, audiobook)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise ValueError(f"Error generating {unvoiced.id}: {e}") from e
 
 
 def main():
