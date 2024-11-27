@@ -112,7 +112,7 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
                 "model": "XTTS_v2"
             },
             files={
-                "reference_audio": (f"{speaker_name}.wav", b"test audio data")
+                "reference_audio": (f"{speaker_name}.wav", b"test audio data for " + bytes(speaker_name, "utf8"))
             }
         )
         assert response.status_code == 200
@@ -173,13 +173,24 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     # For now, we'll simulate a worker directly
     worker_id = "test_worker"
     while True:
-        item = WorkQueue.assign_work_item(db_session, worker_id)
+        response = client.post("/api/queue/take", json={"worker_id": worker_id, "version": 1})
+        if response.status_code != 200:
+            print(response.text)
+        assert response.status_code == 200
+        item = response.json()
         if item is None:
             break
-        content_piece = item.content_piece
-        speaker = content_piece.get_speaker_for_audiobook(db_session, item.audiobook)
-        performance = speaker.generate_voice_performance(db_session, content_piece, item.audiobook)
-        item.complete_work_item(db_session, worker_id, performance)
+
+        text = item["text"]
+        assert item['speaker_model'] == "tts_models/multilingual/multi-dataset/xtts_v2"
+        audio_hash = item['reference_audio_hash']
+        response = client.get(f"/api/reference_voices/{audio_hash}")
+        assert response.status_code == 200
+        audio_data = response.read()
+        assert audio_data in [b"test audio data for alice", b"test audio data for bob"]
+        generated_audio = b"generated audio for text: " + bytes(text, "utf8")
+        response = client.post(f"/api/queue/{item['id']}/complete/{worker_id}", files={"generated_audio": (f"{text}.wav", generated_audio)})
+        assert response.status_code == 200
 
 
     # 6. Verify the results

@@ -277,6 +277,7 @@ class WorkQueue(Base):
     id = Column(Integer, primary_key=True)
     content_piece_id = Column(Integer, ForeignKey('content_pieces.id'), nullable=False)
     audiobook_id = Column(Integer, ForeignKey('audiobooks.id'), nullable=False)
+    speaker_id = Column(Integer, ForeignKey('speakers.id'), nullable=False)
     created_voice_performance_id = Column(Integer, ForeignKey('voice_performances.id'), nullable=True)
     priority = Column(Integer, default=0)  # Higher number = higher priority
     status = Column(Enum('pending', 'in_progress', 'completed', 'failed', name='queue_status'), default='pending')
@@ -289,6 +290,7 @@ class WorkQueue(Base):
     # Relationships
     content_piece = relationship("ContentPiece")
     audiobook = relationship("Audiobook")
+    speaker = relationship("Speaker")
     created_voice_performance = relationship("VoicePerformance", foreign_keys=[created_voice_performance_id])
 
     @classmethod
