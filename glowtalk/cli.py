@@ -1,8 +1,14 @@
 import json
 from sqlalchemy.orm import Session
-from glowtalk import glowfic_scraper, database, models
+from glowtalk import glowfic_scraper, database, models, idle
 from pathlib import Path
 import os
+import time
+import datetime
+import sys
+from collections import deque
+import uuid
+
 
 def initialize_reference_voices(db: Session):
     info = {
@@ -38,7 +44,7 @@ def initialize_reference_voices(db: Session):
     for name, info in info.items():
         models.ReferenceVoice.get_or_create(
             db,
-            audio_path=str(Path(os.getcwd()) / "references" / f"{name}.wav"),
+            audio_path=Path(os.getcwd()) / "references" / f"{name}.wav",
             description=info["description"],
             transcript=info["transcript"]
         )
@@ -69,8 +75,37 @@ def create_audiobook(db: Session) -> models.Audiobook:
     db.commit()
     return audiobook
 
+
+class ProgressReporter:
+    def __init__(self, outstream=sys.stdout, history_size=50):
+        self.previous_measurements = deque(maxlen=history_size)
+        self.outstream = outstream
+
+    def report(self, num_remaining: int):
+        self.previous_measurements.append((num_remaining, time.time()))
+        if len(self.previous_measurements) > 2:
+            rates = []
+            for i in range(1, len(self.previous_measurements)):
+                num_previous, time_previous = self.previous_measurements[i-1]
+                num_current, time_current = self.previous_measurements[i]
+                posts_processed = num_previous - num_current
+                if posts_processed > 0:
+                    seconds_per_post = (time_current - time_previous) / posts_processed
+                    rates.append(seconds_per_post)
+
+            if rates:
+                average_seconds_per_post = sum(rates) / len(rates)
+                seconds_remaining = num_remaining * average_seconds_per_post
+                formatted_time = datetime.timedelta(seconds=seconds_remaining)
+                print(f"{num_remaining} posts remaining, estimated time to completion: {formatted_time}",
+                      file=self.outstream)
+            else:
+                print(f"{num_remaining} posts remaining", file=self.outstream)
+
 def generate_audiobook(db: Session, audiobook: models.Audiobook):
+    reporter = ProgressReporter()
     while True:
+        reporter.report(models.ContentPiece.get_unvoiced(db).count())
         unvoiced: models.ContentPiece = models.ContentPiece.get_unvoiced(db).first()
         if not unvoiced:
             break
@@ -81,6 +116,79 @@ def generate_audiobook(db: Session, audiobook: models.Audiobook):
             db.rollback()
             raise ValueError(f"Error generating {unvoiced.id}: {e}") from e
 
+def generate_one_voiced_piece(db: Session, audiobook: models.Audiobook):
+    unvoiced: models.ContentPiece = models.ContentPiece.get_unvoiced(db).first()
+    if not unvoiced:
+        # sleep for ten seconds, so this isn't a busy-wait
+        time.sleep(60)
+        return
+    # Hm, this is wrong. It isn't a ContentPiece that's unvoiced exactly… it's
+    # that an audiobook doesn't have a performance for that content piece.
+    # TODO: think this through more.
+    unvoiced.perform_for_audiobook(db, audiobook)
+    db.commit()
+
+def generate_audio_files_when_idle(db: Session, audiobook: models.Audiobook):
+    progress_reporter = ProgressReporter()
+    idle_checker = idle.create_idle_checker()
+    idle_threshold_seconds = 30
+    while True:
+        while idle_checker.get_idle_time() > idle_threshold_seconds:
+            generate_one_voiced_piece(db, audiobook)
+            progress_reporter.report(models.ContentPiece.get_unvoiced(db).count())
+
+        # Check if system becomes active
+        print("System is active, not working...")
+        while idle_checker.get_idle_time() < idle_threshold_seconds:
+            time.sleep(10)
+
+class Worker:
+    def __init__(self, db: Session, verbose: bool = False):
+        self.db = db
+        # we want to store the worker id persistently on the user machine.
+        # we use worker id mainly so that if a worker is misconfigured and
+        # generates bad audio, we can later easily regenerate just the
+        # performances it created.
+        # so we want to store the worker id in a file in the user's home
+        # directory or similar. note that this needs to work cross platform,
+        # including on Windows.
+        self.worker_id_path = Path.home() / ".glowtalk_worker_id"
+        if not self.worker_id_path.exists():
+            self.worker_id = str(uuid.uuid4())
+            self.worker_id_path.write_text(self.worker_id)
+        else:
+            self.worker_id = self.worker_id_path.read_text()
+        self.verbose = verbose
+
+    def work(self):
+        idle_checker = idle.create_idle_checker()
+        idle_threshold_seconds = 30
+        while True:
+            while idle_checker.get_idle_time() > idle_threshold_seconds:
+                start_time = time.time()
+                self.work_one_item()
+                if self.verbose:
+                    print(f"Generated a voice performance in {time.time() - start_time} seconds")
+
+            if self.verbose:
+                print("System is being used by a person, waiting for it to become idle...")
+            # Check if system becomes active
+            while idle_checker.get_idle_time() < idle_threshold_seconds:
+                time.sleep(10)
+
+    def work_one_item(self):
+        work_item = models.WorkQueue.assign_work_item(self.db, self.worker_id)
+        if work_item is None:
+            time.sleep(60)
+            return
+
+        unvoiced: models.ContentPiece = models.ContentPiece.get_unvoiced(self.db).first()
+        try:
+            performance = unvoiced.perform_for_audiobook(self.db, work_item.audiobook)
+            work_item.complete_work_item(self.db, self.worker_id, performance)
+        except Exception as e:
+            work_item.fail_work_item(self.db, self.worker_id, str(e))
+
 
 def main():
     db = database.init_db()
@@ -89,17 +197,9 @@ def main():
     audiobook = db.query(models.Audiobook).first()
     if not audiobook:
         audiobook = create_audiobook(db)
-    generate_audiobook(db, audiobook)
+    worker = Worker(db, verbose=True)
+    worker.work()
 
-    # speaker = speak.Speaker()
-
-    # default_reader = readers["Elysium"]
-    # book = audiobook.Audiobook(glowfic=fic, default_reader=default_reader, character_readers=readers)
-    # for post in fic.posts[4:5]:
-    #     reader = book.get_reader_for_post(post)
-    #     spoken_text = f"{post.character}, {post.screenname}: {post.content}"
-    #     filename = speaker.speak(spoken_text, reader)
-    #     print(f"Generated {filename}")
 
 if __name__ == "__main__":
     main()

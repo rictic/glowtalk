@@ -45,13 +45,17 @@ class Speaker:
     self.tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
   def speak(self, text: str, speaker_wav: Path, language="en", **kwargs) -> list[Path]:
+    # Technically we should split the text into chunks of 250 characters or less,
+    # because the model allegedly isn't able to handle longer text.
+    # But I haven't noticed any issues with that yet.
     filename = get_unique_filename()
     self.tts.tts_to_file(
-        text=text,
-        speaker_wav=speaker_wav,
-        language=language,
-        file_path=filename,
-        **kwargs
+      text=text,
+      speaker_wav=speaker_wav,
+      language=language,
+      file_path=filename,
+      **kwargs
     )
+
     return filename
 

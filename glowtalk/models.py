@@ -1,13 +1,14 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, UniqueConstraint, Enum
-import enum
-from pathlib import Path
-from typing import Optional
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, UniqueConstraint, Enum, Table
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.ext.orderinglist import ordering_list
-from datetime import datetime
+from sqlalchemy.orm import Session
+
+from datetime import datetime, timedelta
+import enum
 import hashlib
 import os
-from sqlalchemy.orm import Session
+from pathlib import Path
+from typing import Optional
 
 Base = declarative_base()
 
@@ -104,7 +105,7 @@ class ContentPiece(Base):
         # otherwise, use the default speaker for the audiobook
         return audiobook.default_speaker
 
-    def perform_for_audiobook(self, session: Session, audiobook: 'Audiobook'):
+    def perform_for_audiobook(self, session: Session, audiobook: 'Audiobook') -> 'VoicePerformance':
         speaker = self.get_speaker_for_audiobook(session, audiobook)
         if not speaker:
             raise ValueError(f"No speaker configured for content piece {self.text} or for character {self.character or self.part.character} and no default speaker in this audiobook.")
@@ -127,6 +128,16 @@ class Audiobook(Base):
     forked_from = relationship("Audiobook", remote_side=[id])
     queue_items = relationship("WorkQueue", back_populates="audiobook")
 
+    def ready_to_generate(self, session: Session):
+        """Check if this audiobook is ready to generate"""
+        # if we have a default speaker, we're ready
+        if self.default_speaker:
+            return True
+        # if we don't have a default speaker, query looking for any part
+        # that doesn't have a character voice for this audiobook
+        # hm, but that's not possible in our current schema. need to change that
+        raise NotImplementedError("Not implemented")
+
 class VoicePerformance(Base):
     __tablename__ = 'voice_performances'
 
@@ -136,7 +147,6 @@ class VoicePerformance(Base):
     speaker_id = Column(Integer, ForeignKey('speakers.id'), nullable=False)
     audio_file_path = Column(String, nullable=False)
     audio_file_hash = Column(String, nullable=False)
-    is_preferred = Column(Boolean, default=False)
     generation_date = Column(DateTime, default=datetime.utcnow)
     worker_id = Column(String, nullable=True)
 
@@ -213,7 +223,7 @@ class Speaker(Base):
             session.add(speaker)
         return speaker
 
-    def generate_voice_performance(self, session: Session, content_piece: ContentPiece, audiobook: Audiobook):
+    def generate_voice_performance(self, session: Session, content_piece: ContentPiece, audiobook: Audiobook) -> VoicePerformance:
         global _speaker_model
         if not _speaker_model:
             import glowtalk.speak
@@ -267,6 +277,7 @@ class WorkQueue(Base):
     id = Column(Integer, primary_key=True)
     content_piece_id = Column(Integer, ForeignKey('content_pieces.id'), nullable=False)
     audiobook_id = Column(Integer, ForeignKey('audiobooks.id'), nullable=False)
+    created_voice_performance_id = Column(Integer, ForeignKey('voice_performances.id'), nullable=True)
     priority = Column(Integer, default=0)  # Higher number = higher priority
     status = Column(Enum('pending', 'in_progress', 'completed', 'failed', name='queue_status'), default='pending')
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -278,3 +289,60 @@ class WorkQueue(Base):
     # Relationships
     content_piece = relationship("ContentPiece")
     audiobook = relationship("Audiobook")
+    created_voice_performance = relationship("VoicePerformance", foreign_keys=[created_voice_performance_id])
+
+    @classmethod
+    def assign_work_item(cls, session: Session, worker_id: str) -> Optional['WorkQueue']:
+        # Find the highest priority pending work item that is either pending
+        # or in progress but with a started_at older than 2 minutes
+        # (to handle worker crashes)
+        work_item = session.query(cls)\
+            .filter(
+                cls.status.in_(['pending', 'in_progress']),
+                cls.started_at < datetime.utcnow() - timedelta(minutes=2)
+            )\
+            .order_by(cls.priority.desc(), cls.created_at.asc()).first()
+        if work_item is None:
+            # Try to take the highest priority in progress item then
+            work_item = session.query(cls)\
+                .filter(cls.status == 'in_progress')\
+                .order_by(cls.priority.desc(), cls.created_at.asc()).first()
+        if work_item is None:
+            return None
+        work_item.worker_id = worker_id
+        work_item.status = 'in_progress'
+        work_item.started_at = datetime.utcnow()
+        session.add(work_item)
+        session.commit()
+        return work_item
+
+    def complete_work_item(self, session: Session, worker_id: str, created_voice_performance: VoicePerformance):
+        if self.status == 'completed':
+            return
+        if self.status == 'failed':
+            self.error_message = None
+        self.worker_id = worker_id
+        self.status = 'completed'
+        self.completed_at = datetime.utcnow()
+        self.created_voice_performance = created_voice_performance
+
+        # We want to
+
+
+        self.audiobook.voice_performances.append(created_voice_performance)
+        session.add(self)
+        session.add(created_voice_performance)
+        session.add(self.audiobook)
+        session.commit()
+
+    def fail_work_item(self, session: Session, worker_id: str, error_message: str):
+        if self.status == 'failed':
+            return
+        if self.status == 'completed':
+            self.error_message = None
+            return
+        self.worker_id = worker_id
+        self.status = 'failed'
+        self.error_message = error_message
+        session.add(self)
+        session.commit()
