@@ -293,13 +293,16 @@ class WorkQueue(Base):
 
     @classmethod
     def assign_work_item(cls, session: Session, worker_id: str) -> Optional['WorkQueue']:
-        # Find the highest priority pending work item that is either pending
-        # or in progress but with a started_at older than 2 minutes
-        # (to handle worker crashes)
+        # Find the highest priority work item that is either:
+        # 1. pending, or
+        # 2. in progress but stale (started more than 2 minutes ago)
         work_item = session.query(cls)\
             .filter(
-                cls.status.in_(['pending', 'in_progress']),
-                cls.started_at < datetime.utcnow() - timedelta(minutes=2)
+                (cls.status == 'pending') |
+                (
+                    (cls.status == 'in_progress') &
+                    (cls.started_at < datetime.utcnow() - timedelta(minutes=2))
+                )
             )\
             .order_by(cls.priority.desc(), cls.created_at.asc()).first()
         if work_item is None:
@@ -325,11 +328,6 @@ class WorkQueue(Base):
         self.status = 'completed'
         self.completed_at = datetime.utcnow()
         self.created_voice_performance = created_voice_performance
-
-        # We want to
-
-
-        self.audiobook.voice_performances.append(created_voice_performance)
         session.add(self)
         session.add(created_voice_performance)
         session.add(self.audiobook)

@@ -9,6 +9,7 @@ import os
 import json
 import re
 from pathlib import Path
+from glowtalk import glowfic_scraper
 
 app = FastAPI()
 
@@ -22,8 +23,8 @@ def get_db():
 
 # --- Pydantic Models ---
 # Request Models
-class WorkCreate(BaseModel):
-    url: HttpUrl
+class ScrapeGlowficRequest(BaseModel):
+    post_id: int
 
 # Response Models
 class WorkResponse(BaseModel):
@@ -80,14 +81,10 @@ def get_work(work_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Work not found")
     return work
 
-@app.post("/api/works", response_model=WorkResponse)
-def create_work(work: WorkCreate, db: Session = Depends(get_db)):
+@app.post("/api/works/scrape_glowfic", response_model=WorkResponse)
+def create_work(request: ScrapeGlowficRequest, db: Session = Depends(get_db)):
     """Create a new work by URL, triggering scraping in the background"""
-    existing = models.OriginalWork.get_by_url_latest(db, str(work.url))
-    if existing:
-        return existing
-
-    new_work = models.OriginalWork(url=str(work.url))
+    new_work = glowfic_scraper.scrape_post(request.post_id, db)
     db.add(new_work)
     db.commit()
     db.refresh(new_work)  # Refresh to ensure we have the latest data
@@ -208,6 +205,7 @@ def generate_audiobook(
     unvoiced = models.ContentPiece.get_unvoiced(db)
 
     # Add them to the work queue
+    i = 0
     for piece in unvoiced:
         queue_item = models.WorkQueue(
             content_piece_id=piece.id,
@@ -215,9 +213,10 @@ def generate_audiobook(
             priority=0
         )
         db.add(queue_item)
+        i += 1
 
     db.commit()
-    return {"message": "Generation started", "queued_items": unvoiced.count()}
+    return {"message": "Generation started", "queued_items": i}
 
 @app.get("/api/queue/status")
 def get_queue_status(db: Session = Depends(get_db)):

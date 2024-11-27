@@ -75,17 +75,6 @@ def sample_speaker(db_session, test_cwd):
     db_session.commit()
     return speaker
 
-def test_create_work(client):
-    """Test creating a new work"""
-    response = client.post(
-        "/api/works",
-        json={"url": "https://glowfic.com/posts/456"}
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["url"] == "https://glowfic.com/posts/456"
-    assert "id" in data
-
 def test_get_work(client, sample_work):
     """Test getting an existing work"""
     response = client.get(f"/api/works/{sample_work.id}")
