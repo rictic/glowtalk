@@ -83,6 +83,7 @@ def test_create_from_glowfic(db_session: Session, mock_glowfic_html: str):
     assert len(first_content) > 0
     voiced_first_texts = [cp.text for cp in first_content if cp.should_voice]
     assert voiced_first_texts == [
+        "Alice (AliceScreen) (by AuthorOne):",
         "Hello there!",
         "This is the first post.",
         "This is a second paragraph."
@@ -93,10 +94,11 @@ def test_create_from_glowfic(db_session: Session, mock_glowfic_html: str):
     assert len(second_content) > 0
     voiced_second_texts = [cp.text for cp in second_content if cp.should_voice]
     assert voiced_second_texts == [
+        "Bob (BobScreen) (by AuthorTwo):",
         "Hi Alice!",
         "This is a reply.",
         "With formatted text."
     ]
 
-    # we should have six content pieces that should be voiced
-    assert ContentPiece.get_unvoiced(db_session).count() == 6
+    # we should have eight content pieces that should be voiced
+    assert ContentPiece.get_unvoiced(db_session).count() == 8

@@ -86,6 +86,20 @@ def create_from_glowfic(url: str, db: Session, soup: BeautifulSoup) -> OriginalW
             if author:
                 part.author = author.text.strip()
 
+            # Add a content piece to announce the post.
+            announcement = None
+            if part.character:
+                announcement = f"{part.character}"
+                if part.screenname:
+                    announcement += f" ({part.screenname})"
+                announcement += f" (by {part.author})"
+            else:
+                announcement = f"Post without a character by {part.author}"
+
+            db.add(ContentPiece(part=part, text=announcement + ":", should_voice=True))
+            db.add(ContentPiece(part=part, text='\n\n', should_voice=False))
+
+
             # Extract content, removing formatting
             content_div = post.find('div', class_='post-content')
             content = _process_content_node(content_div).strip()

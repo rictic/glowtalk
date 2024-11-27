@@ -167,7 +167,7 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     response = client.post(f"/api/audiobooks/{audiobook_id}/generate")
     assert response.status_code == 200
     queued_items = response.json()["queued_items"]
-    assert queued_items == 4  # Two Alice sentences, two Bob sentences
+    assert queued_items == 6  # Two Alice sentences, two Bob sentences, and two post announcements / descriptions.
 
     # MISSING API: We need a worker API endpoint that processes queue items
     # For now, we'll simulate a worker directly
@@ -198,7 +198,7 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     response = client.get("/api/queue/status")
     assert response.status_code == 200
     status = response.json()
-    assert status["completed"] == 4
+    assert status["completed"] == 6
     assert status["pending"] == 0
     assert status["in_progress"] == 0
     assert status["failed"] == 0
@@ -206,19 +206,19 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     # MISSING API: We need an API to get audiobook status/details
     # For now, query the database directly
     performances = db_session.query(VoicePerformance).all()
-    assert len(performances) == 4
+    assert len(performances) == 6
 
     # Verify Alice's line used Alice's voice
     alice_performances = [p for p in performances if "Alice" in p.content_piece.part.character]
-    assert [ap.speaker_id for ap in alice_performances] == [alice_speaker_id] * 2
-    assert [ap.content_piece.part.character for ap in alice_performances] == ["Alice"] * 2
-    assert [ap.content_piece.text for ap in alice_performances] == ["Hello there!", "This is Alice speaking."]
+    assert [ap.speaker_id for ap in alice_performances] == [alice_speaker_id] * 3
+    assert [ap.content_piece.part.character for ap in alice_performances] == ["Alice"] * 3
+    assert [ap.content_piece.text for ap in alice_performances] == ["Alice (AliceScreen) (by AuthorOne):", "Hello there!", "This is Alice speaking."]
 
     # Verify Bob's line used Bob's voice
     bob_performances = [p for p in performances if "Bob" in p.content_piece.part.character]
-    assert [bp.speaker_id for bp in bob_performances] == [bob_speaker_id] * 2
-    assert [bp.content_piece.part.character for bp in bob_performances] == ["Bob"] * 2
-    assert [bp.content_piece.text for bp in bob_performances] == ["Hi Alice!", "This is Bob."]
+    assert [bp.speaker_id for bp in bob_performances] == [bob_speaker_id] * 3
+    assert [bp.content_piece.part.character for bp in bob_performances] == ["Bob"] * 3
+    assert [bp.content_piece.text for bp in bob_performances] == ["Bob (BobScreen) (by AuthorTwo):", "Hi Alice!", "This is Bob."]
 
     # MISSING API: We need an API to get the final audio files/manifest
     # This would be useful for actually playing back the audiobook
