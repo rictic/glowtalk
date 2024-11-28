@@ -8,6 +8,9 @@ import datetime
 import sys
 from collections import deque
 import uuid
+import uvicorn
+from glowtalk.api import app
+import threading
 
 
 def initialize_reference_voices(db: Session):
@@ -143,8 +146,8 @@ def generate_audio_files_when_idle(db: Session, audiobook: models.Audiobook):
             time.sleep(10)
 
 class Worker:
-    def __init__(self, db: Session, verbose: bool = False):
-        self.db = db
+    def __init__(self, sessionmaker, verbose: bool = False, idle_threshold_seconds: int = 30):
+        self.sessionmaker = sessionmaker
         # we want to store the worker id persistently on the user machine.
         # we use worker id mainly so that if a worker is misconfigured and
         # generates bad audio, we can later easily regenerate just the
@@ -159,12 +162,12 @@ class Worker:
         else:
             self.worker_id = self.worker_id_path.read_text()
         self.verbose = verbose
+        self.idle_threshold_seconds = idle_threshold_seconds
 
     def work(self):
         idle_checker = idle.create_idle_checker()
-        idle_threshold_seconds = 30
         while True:
-            while idle_checker.get_idle_time() > idle_threshold_seconds:
+            while idle_checker.get_idle_time() > self.idle_threshold_seconds:
                 start_time = time.time()
                 self.work_one_item()
                 if self.verbose:
@@ -173,35 +176,47 @@ class Worker:
             if self.verbose:
                 print("System is being used by a person, waiting for it to become idle...")
             # Check if system becomes active
-            while idle_checker.get_idle_time() < idle_threshold_seconds:
-                time.sleep(10)
+            while idle_checker.get_idle_time() < self.idle_threshold_seconds:
+                time.sleep(self.idle_threshold_seconds)
 
     def work_one_item(self):
-        work_item = models.WorkQueue.assign_work_item(self.db, self.worker_id)
-        if work_item is None:
-            time.sleep(60)
-            return
+        with self.sessionmaker() as db:
+            work_item = models.WorkQueue.assign_work_item(db, self.worker_id)
+            if work_item is None:
+                if self.verbose:
+                    print("No work item assigned, waiting for one...")
+                time.sleep(60)
+                return
 
-        unvoiced: models.ContentPiece = models.ContentPiece.get_unvoiced(self.db).first()
-        try:
-            performance = unvoiced.perform_for_audiobook(self.db, work_item.audiobook)
-            work_item.complete_work_item(self.db, self.worker_id, performance)
-        except Exception as e:
-            work_item.fail_work_item(self.db, self.worker_id, str(e))
+            content_piece: models.ContentPiece = work_item.content_piece
+            if self.verbose:
+                print(f"Performing the line {json.dumps(content_piece.text)}")
+            performance = content_piece.perform_for_audiobook(db, work_item.audiobook)
+            try:
+                work_item.complete_work_item(db, self.worker_id, performance)
+            except Exception as e:
+                work_item.fail_work_item(db, self.worker_id, str(e))
 
 
 def main():
-    db = database.init_db()
-    initialize_reference_voices(db)
-    # query for the first audiobook in the database
-    audiobook: models.Audiobook = db.query(models.Audiobook).first()
-    if not audiobook:
-        audiobook = create_audiobook(db)
-        
+    sessionmaker = database.init_db()
+    with sessionmaker() as db:
+        initialize_reference_voices(db)
+        # query for the first audiobook in the database
+        audiobook: models.Audiobook = db.query(models.Audiobook).first()
+        if not audiobook:
+            audiobook = create_audiobook(db)
+            queued = audiobook.add_work_queue_items(db)
+            print(f"Queued {queued} work queue items")
 
-    worker = Worker(db, verbose=True)
-    worker.work()
+    # Start the worker in a background thread
+    worker = Worker(sessionmaker, verbose=True, idle_threshold_seconds=5)
+    worker_thread = threading.Thread(target=worker.work, daemon=True)
+    worker_thread.start()
 
+    # Run the FastAPI server
+    print("Running GlowTalk at http://localhost:8585")
+    uvicorn.run(app, host="0.0.0.0", port=8585)
 
 if __name__ == "__main__":
     main()

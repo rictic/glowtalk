@@ -28,5 +28,4 @@ def init_db(db_path="sqlite:///audiobooks.db", run_migrations=True):
         alembic_cfg = Config(str(alembic_ini_path))
         command.stamp(alembic_cfg, "head")
 
-    Session = sessionmaker(bind=engine)
-    return Session()
+    return sessionmaker(bind=engine)
