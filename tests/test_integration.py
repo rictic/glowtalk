@@ -258,10 +258,22 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
 
     # MISSING API: We need an API to get the final audio files/manifest
     # This would be useful for actually playing back the audiobook
-    audiobook = db_session.get(models.Audiobook, audiobook_id)
-    wav_files = audiobook.get_wav_files(db_session)
+    response = client.get(f"/api/audiobooks/{audiobook_id}/wav_files")
+    assert response.status_code == 200
+    wav_files = response.json()["files"]
     assert len(wav_files) == 6
-
+    wav_file_contents = [
+        client.get(f"/api/generated_wav_files/{wav_file_hash}").read()
+        for wav_file_hash in wav_files
+    ]
+    assert wav_file_contents == [
+        b"generated audio for text: Alice (AliceScreen) (by AuthorOne):",
+        b"generated audio for text: Hello there!",
+        b"generated audio for text: This is Alice speaking.",
+        b"generated audio for text: Bob (BobScreen) (by AuthorTwo):",
+        b"generated audio for text: Hi Alice!",
+        b"generated audio for text: This is Bob."
+    ]
 
     response = client.post(f"/api/works/scrape_glowfic", json={"post_id": 5678})
     assert response.status_code == 200
@@ -311,9 +323,19 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     assert queue_status == expected_queue_status
 
     # Verify that the content piece has been updated with the new audio file
-    wav_files = audiobook.get_wav_files(db_session)
+    response = client.get(f"/api/audiobooks/{audiobook_id}/wav_files")
+    assert response.status_code == 200
+    wav_files = response.json()["files"]
     assert len(wav_files) == 6
-    wav_file_contents = [wav_file.read_bytes() for wav_file in wav_files]
-    # The updated audio is present, but the original is not
-    assert b"updated generated audio for text: " + bytes(item["text"], "utf8") in wav_file_contents
-    assert b"generated audio for text: " + bytes(item["text"], "utf8") not in wav_file_contents
+    wav_file_contents = [
+        client.get(f"/api/generated_wav_files/{wav_file_hash}").read()
+        for wav_file_hash in wav_files
+    ]
+    assert wav_file_contents == [
+        b"updated generated audio for text: Alice (AliceScreen) (by AuthorOne):",
+        b"generated audio for text: Hello there!",
+        b"generated audio for text: This is Alice speaking.",
+        b"generated audio for text: Bob (BobScreen) (by AuthorTwo):",
+        b"generated audio for text: Hi Alice!",
+        b"generated audio for text: This is Bob."
+    ]

@@ -92,6 +92,9 @@ class WorkItemCompletionRequest(BaseModel):
 class RegenerateContentPieceRequest(BaseModel):
     audiobook_id: int
 
+class GetWavFilesResponse(BaseModel):
+    files: List[str]
+    complete: bool
 
 # --- API Routes ---
 
@@ -233,6 +236,26 @@ def generate_audiobook(
 
     count = audiobook.add_work_queue_items(db)
     return {"message": "Generation started", "queued_items": count}
+
+@app.get("/api/audiobooks/{audiobook_id}/wav_files", response_model=GetWavFilesResponse)
+def get_wav_files(audiobook_id: int, db: Session = Depends(get_db)):
+    """Get a list of all WAV files for an audiobook"""
+    audiobook = db.get(models.Audiobook, audiobook_id)
+    if not audiobook:
+        raise HTTPException(status_code=404, detail="Audiobook not found")
+    performances = audiobook.get_performances(db)
+    if not performances:
+        return {"files": [], "complete": False}
+    hashes = [performance.audio_file_hash for performance in performances]
+    return {"files": hashes, "complete": True}
+
+@app.get("/api/generated_wav_files/{hash}", response_class=FileResponse)
+def get_generated_wav_file(hash: str, db: Session = Depends(get_db)):
+    """Get a specific generated WAV file by its hash"""
+    file_path = Path(os.getcwd()) / 'outputs' / f"{hash}.wav"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="WAV file not found")
+    return FileResponse(file_path)
 
 @app.post("/api/queue/take", response_model=Optional[WorkQueueItemResponse])
 def assign_work_item(request: TakeWorkRequest, db: Session = Depends(get_db)):

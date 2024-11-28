@@ -143,10 +143,14 @@ class Audiobook(Base):
 
     def get_wav_files(self, session: Session) -> Optional[list[Path]]:
         """Get all the wav files for this audiobook"""
+        performances = self.get_performances(session)
+        return [Path(performance.audio_file_path) for performance in performances]
+
+    def get_performances(self, session: Session) -> Optional[list['VoicePerformance']]:
         # Inefficient, but it's a start. Go through each content piece in each
         # part, determine our preferred speaker, and get the audio file path
         # for it
-        wav_files = []
+        performances = []
         original_work = self.original_work
         for part in original_work.parts:
             for content_piece in part.content_pieces:
@@ -160,8 +164,8 @@ class Audiobook(Base):
                     .first()
                 if not performance:
                     return None
-                wav_files.append(Path(performance.audio_file_path))
-        return wav_files
+                performances.append(performance)
+        return performances
 
     def add_work_queue_items(self, session: Session):
         # Get all content pieces that need voicing.
