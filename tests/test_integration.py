@@ -6,7 +6,8 @@ from sqlalchemy.pool import StaticPool
 import os
 from pathlib import Path
 
-from glowtalk import models
+from glowtalk import models, worker
+from glowtalk.worker import Worker
 from glowtalk.api import app, get_db
 from glowtalk.models import Base, Speaker, SpeakerModel, WorkQueue, VoicePerformance
 from glowtalk.glowfic_scraper import create_from_glowfic
@@ -56,14 +57,14 @@ SECOND_MOCK_GLOWFIC_HTML = """
 def mock_speaker_model(monkeypatch):
     """Mock the speaker model to avoid actual TTS generation"""
     class MockSpeakerModel:
-        def speak(self, text, reference_path):
-            # Create a fake audio file
-            output_path = Path("output") / f"{hash(text)}.wav"
-            output_path.parent.mkdir(exist_ok=True)
-            output_path.write_bytes(b"fake audio data")
+        def __init__(self, model: models.SpeakerModel):
+            self.model = model
+
+        def speak(self, text, speaker_wav, output_path):
+            output_path.write_bytes( b"generated audio data for " + bytes(text, "utf8"))
             return output_path
 
-    monkeypatch.setattr("glowtalk.models._speaker_model", MockSpeakerModel())
+    monkeypatch.setattr("glowtalk.speak.Speaker", MockSpeakerModel)
 
 @pytest.fixture
 def mock_glowfic_scraper(monkeypatch):
@@ -232,6 +233,8 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     assert queue_status == expected_queue_status
 
     worker_id = "test_worker"
+    worker = Worker(client, verbose=False, idle_threshold_seconds=5)
+
     while True:
         response = client.post("/api/queue/take", json={"worker_id": worker_id, "version": 1})
         if response.status_code != 200:
@@ -240,26 +243,15 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
         item = response.json()
         if item is None:
             break
-
         expected_queue_status["in_progress"] += 1
         expected_queue_status["pending"] -= 1
-        queue_status = client.get("/api/queue/status").json()
-        assert queue_status == expected_queue_status
+        assert expected_queue_status == client.get("/api/queue/status").json()
 
-        text = item["text"]
-        assert item['speaker_model'] == "tts_models/multilingual/multi-dataset/xtts_v2"
-        audio_hash = item['reference_audio_hash']
-        response = client.get(f"/api/reference_voices/{audio_hash}")
-        assert response.status_code == 200
-        audio_data = response.read()
-        assert audio_data in [b"test audio data for alice", b"test audio data for bob"]
-        generated_audio = b"generated audio for text: " + bytes(text, "utf8")
-        response = client.post(f"/api/queue/{item['id']}/complete/{worker_id}", files={"generated_audio": (f"{text}.wav", generated_audio)})
-        assert response.status_code == 200
+        worker.work_one_item(item)
         expected_queue_status["completed"] += 1
         expected_queue_status["in_progress"] -= 1
-        queue_status = client.get("/api/queue/status").json()
-        assert queue_status == expected_queue_status
+        assert expected_queue_status == client.get("/api/queue/status").json()
+
 
     # MISSING API: We need an API to get audiobook status/details
     # For now, query the database directly
@@ -289,12 +281,12 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
         for wav_file_hash in wav_files
     ]
     assert wav_file_contents == [
-        b"generated audio for text: Alice (AliceScreen) (by AuthorOne):",
-        b"generated audio for text: Hello there!",
-        b"generated audio for text: This is Alice speaking.",
-        b"generated audio for text: Bob (BobScreen) (by AuthorTwo):",
-        b"generated audio for text: Hi Alice!",
-        b"generated audio for text: This is Bob."
+        b"generated audio data for Alice (AliceScreen) (by AuthorOne):",
+        b"generated audio data for Hello there!",
+        b"generated audio data for This is Alice speaking.",
+        b"generated audio data for Bob (BobScreen) (by AuthorTwo):",
+        b"generated audio data for Hi Alice!",
+        b"generated audio data for This is Bob."
     ]
 
     assert mock_combine_wav_to_mp3() == 0
@@ -376,9 +368,9 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     ]
     assert wav_file_contents == [
         b"updated generated audio for text: Alice (AliceScreen) (by AuthorOne):",
-        b"generated audio for text: Hello there!",
-        b"generated audio for text: This is Alice speaking.",
-        b"generated audio for text: Bob (BobScreen) (by AuthorTwo):",
-        b"generated audio for text: Hi Alice!",
-        b"generated audio for text: This is Bob."
+        b"generated audio data for Hello there!",
+        b"generated audio data for This is Alice speaking.",
+        b"generated audio data for Bob (BobScreen) (by AuthorTwo):",
+        b"generated audio data for Hi Alice!",
+        b"generated audio data for This is Bob."
     ]

@@ -1,5 +1,5 @@
-from pydub import AudioSegment
 from pathlib import Path
+from pydub import AudioSegment
 
 def combine_wav_to_mp3(wav_files: list[Path], output_mp3_path: Path):
     # Start with the first file

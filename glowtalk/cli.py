@@ -1,6 +1,6 @@
 import json
 from sqlalchemy.orm import Session
-from glowtalk import glowfic_scraper, database, models, idle
+from glowtalk import glowfic_scraper, database, models, idle, speak, worker
 from pathlib import Path
 import os
 import time
@@ -11,6 +11,9 @@ import uuid
 import uvicorn
 from glowtalk.api import app
 import threading
+import requests
+import tempfile
+import httpx
 
 
 def initialize_reference_voices(db: Session):
@@ -145,58 +148,6 @@ def generate_audio_files_when_idle(db: Session, audiobook: models.Audiobook):
         while idle_checker.get_idle_time() < idle_threshold_seconds:
             time.sleep(10)
 
-class Worker:
-    def __init__(self, sessionmaker, verbose: bool = False, idle_threshold_seconds: int = 30):
-        self.sessionmaker = sessionmaker
-        # we want to store the worker id persistently on the user machine.
-        # we use worker id mainly so that if a worker is misconfigured and
-        # generates bad audio, we can later easily regenerate just the
-        # performances it created.
-        # so we want to store the worker id in a file in the user's home
-        # directory or similar. note that this needs to work cross platform,
-        # including on Windows.
-        self.worker_id_path = Path.home() / ".glowtalk_worker_id"
-        if not self.worker_id_path.exists():
-            self.worker_id = str(uuid.uuid4())
-            self.worker_id_path.write_text(self.worker_id)
-        else:
-            self.worker_id = self.worker_id_path.read_text()
-        self.verbose = verbose
-        self.idle_threshold_seconds = idle_threshold_seconds
-
-    def work(self):
-        idle_checker = idle.create_idle_checker()
-        while True:
-            while idle_checker.get_idle_time() > self.idle_threshold_seconds:
-                start_time = time.time()
-                self.work_one_item()
-                if self.verbose:
-                    print(f"Generated a voice performance in {time.time() - start_time} seconds")
-
-            if self.verbose:
-                print("System is being used by a person, waiting for it to become idle...")
-            # Check if system becomes active
-            while idle_checker.get_idle_time() < self.idle_threshold_seconds:
-                time.sleep(self.idle_threshold_seconds)
-
-    def work_one_item(self):
-        with self.sessionmaker() as db:
-            work_item = models.WorkQueue.assign_work_item(db, self.worker_id)
-            if work_item is None:
-                if self.verbose:
-                    print("No work item assigned, waiting for one...")
-                time.sleep(60)
-                return
-
-            content_piece: models.ContentPiece = work_item.content_piece
-            if self.verbose:
-                print(f"Performing the line {json.dumps(content_piece.text)}")
-            performance = content_piece.perform_for_audiobook(db, work_item.audiobook)
-            try:
-                work_item.complete_work_item(db, self.worker_id, performance)
-            except Exception as e:
-                work_item.fail_work_item(db, self.worker_id, str(e))
-
 
 def main():
     sessionmaker = database.init_db()
@@ -210,12 +161,14 @@ def main():
             print(f"Queued {queued} work queue items")
 
     # Start the worker in a background thread
-    worker = Worker(sessionmaker, verbose=True, idle_threshold_seconds=5)
-    worker_thread = threading.Thread(target=worker.work, daemon=True)
+    base_url = "http://localhost:8585"
+    client = httpx.Client(base_url=base_url)
+    my_worker = worker.Worker(client, verbose=True, idle_threshold_seconds=5)
+    worker_thread = threading.Thread(target=my_worker.work, daemon=True)
     worker_thread.start()
 
     # Run the FastAPI server
-    print("Running GlowTalk at http://localhost:8585")
+    print(f"Running GlowTalk at {base_url}")
     uvicorn.run(app, host="0.0.0.0", port=8585)
 
 if __name__ == "__main__":

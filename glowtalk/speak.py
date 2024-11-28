@@ -1,10 +1,9 @@
 import re
 import os
 from pathlib import Path
-import tempfile
 import torch
-from TTS.api import TTS
-import pysbd
+from glowtalk import models
+
 
 def get_unique_filename() -> Path:
     outputs_dir = Path("outputs")
@@ -32,30 +31,28 @@ def get_unique_filename() -> Path:
         except FileExistsError:
             counter += 1
 
-segmenter = pysbd.Segmenter(language="en", clean=True)
-
 class Speaker:
-  def __init__(self, model: str):
+  def __init__(self, model: models.SpeakerModel):
+    from TTS.api import TTS
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cpu":
       print("pytorch isn't happy with your cuda so this will be slower")
 
-    if model != "tts_models/multilingual/multi-dataset/xtts_v2":
+    if model != models.SpeakerModel.XTTS_v2:
         raise ValueError(f"Unsupported model: {model}")
-    self.tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+    self.tts = TTS(model.value).to(device)
 
-  def speak(self, text: str, speaker_wav: Path, language="en", **kwargs) -> list[Path]:
+  def speak(self, text: str, speaker_wav: Path, language="en", output_path = get_unique_filename(), **kwargs) -> Path:
     # Technically we should split the text into chunks of 250 characters or less,
     # because the model allegedly isn't able to handle longer text.
     # But I haven't noticed any issues with that yet.
-    filename = get_unique_filename()
     self.tts.tts_to_file(
       text=text,
       speaker_wav=speaker_wav,
       language=language,
-      file_path=filename,
+      file_path=output_path,
       **kwargs
     )
 
-    return filename
+    return output_path
 

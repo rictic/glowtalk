@@ -14,14 +14,18 @@ from fastapi.responses import FileResponse
 import hashlib
 
 app = FastAPI()
+SessionLocal = None
 
 # --- Dependency ---
 def get_db():
-    db = init_db()
+    global SessionLocal
+    if SessionLocal is None:
+        SessionLocal = init_db()
+    session = SessionLocal()
     try:
-        yield db
+        yield session
     finally:
-        db.close()
+        session.close()
 
 # --- Pydantic Models ---
 # Request Models
@@ -96,7 +100,14 @@ class GetWavFilesResponse(BaseModel):
     files: List[str]
     complete: bool
 
+class WorkItemFailureRequest(BaseModel):
+    error: str
+
 # --- API Routes ---
+
+@app.get("/api/ok")
+def ok():
+    return {"ok": True}
 
 @app.get("/api/works/{work_id}", response_model=WorkResponse)
 def get_work(work_id: int, db: Session = Depends(get_db)):
@@ -330,6 +341,14 @@ async def complete_work_item(
 
     db.commit()
     db.refresh(item)
+
+@app.post("/api/queue/{item_id}/fail/{worker_id}", response_model=None)
+def fail_work_item(item_id: int, worker_id: str, request: WorkItemFailureRequest, db: Session = Depends(get_db)):
+    """Mark a work item as failed"""
+    item: models.WorkQueue = db.get(models.WorkQueue, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Work item not found")
+    item.fail_work_item(db, worker_id, request.error)
 
 @app.get("/api/queue/status")
 def get_queue_status(db: Session = Depends(get_db)):
