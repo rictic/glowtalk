@@ -37,6 +37,21 @@ MOCK_GLOWFIC_HTML = """
 </div>
 """
 
+SECOND_MOCK_GLOWFIC_HTML = """
+<div class="post-container">
+    <div class="post-post">
+        <div class="post-info-text">
+            <div class="post-character">Joey</div>
+            <div class="post-screenname">JoeyScreen</div>
+            <div class="post-author">AuthorThree</div>
+        </div>
+        <div class="post-content">
+            <p>This is Joey speaking.</p>
+        </div>
+    </div>
+</div>
+"""
+
 @pytest.fixture
 def mock_speaker_model(monkeypatch):
     """Mock the speaker model to avoid actual TTS generation"""
@@ -56,7 +71,10 @@ def mock_glowfic_scraper(monkeypatch):
     from bs4 import BeautifulSoup
 
     def mock_scrape(post_id, db):
-        soup = BeautifulSoup(MOCK_GLOWFIC_HTML, 'html.parser')
+        if post_id == 1234:
+            soup = BeautifulSoup(MOCK_GLOWFIC_HTML, 'html.parser')
+        else:
+            soup = BeautifulSoup(SECOND_MOCK_GLOWFIC_HTML, 'html.parser')
         url = f"https://glowfic.com/posts/{post_id}"
         return create_from_glowfic(url, db, soup)
 
@@ -123,7 +141,7 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     # 2. Create a new work (this will trigger our mocked scraper)
     response = client.post(
         "/api/works/scrape_glowfic",
-        json={"post_id": 12345}
+        json={"post_id": 1234}
     )
     assert response.status_code == 200
     work_id = response.json()["id"]
@@ -238,10 +256,27 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     wav_files = audiobook.get_wav_files(db_session)
     assert len(wav_files) == 6
 
+
+    response = client.post(f"/api/works/scrape_glowfic", json={"post_id": 5678})
+    assert response.status_code == 200
+    second_work_id = response.json()["id"]
+
+    response = client.post(f"/api/works/{second_work_id}/audiobooks", json={"description": "Test audiobook 2", "default_speaker_id": alice_speaker_id})
+    assert response.status_code == 200
+    second_audiobook_id = response.json()["id"]
+    response = client.post(f"/api/audiobooks/{second_audiobook_id}/generate")
+    assert response.status_code == 200
+    queued_items = response.json()["queued_items"]
+    assert queued_items == 2  # Just one sentence and the suffix.
+
+    expected_queue_status["pending"] += queued_items
+    queue_status = client.get("/api/queue/status").json()
+    assert queue_status == expected_queue_status
+
     # Request regenerations for several new takes on a content piece
+    # get a voiced content piece
+    content_piece = db_session.query(models.ContentPiece).filter(models.ContentPiece.should_voice == True).first()
     for i in range(3):
-        # get a voiced content piece
-        content_piece = db_session.query(models.ContentPiece).filter(models.ContentPiece.should_voice == True).first()
         assert content_piece is not None
         response = client.post(f"/api/content_pieces/{content_piece.id}/voice", json={"audiobook_id": audiobook_id})
         assert response.status_code == 200
@@ -249,3 +284,30 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
         queue_status = client.get("/api/queue/status").json()
         assert queue_status == expected_queue_status
 
+    # Verify that taking an item from the queue gets the higher priority individual generation requests
+
+    response = client.post("/api/queue/take", json={"worker_id": worker_id, "version": 1})
+    assert response.status_code == 200
+    item = response.json()
+    assert item is not None
+    assert "Alice" in item["text"] # Alice, not Joey
+    expected_queue_status["in_progress"] += 1
+    expected_queue_status["pending"] -= 1
+    queue_status = client.get("/api/queue/status").json()
+    assert queue_status == expected_queue_status
+
+    # Finish the work item
+    response = client.post(f"/api/queue/{item['id']}/complete/{worker_id}", files={"generated_audio": (f"{item['text']}.wav", b"updated generated audio for text: " + bytes(item["text"], "utf8"))})
+    assert response.status_code == 200
+    expected_queue_status["completed"] += 1
+    expected_queue_status["in_progress"] -= 1
+    queue_status = client.get("/api/queue/status").json()
+    assert queue_status == expected_queue_status
+
+    # Verify that the content piece has been updated with the new audio file
+    wav_files = audiobook.get_wav_files(db_session)
+    assert len(wav_files) == 6
+    wav_file_contents = [wav_file.read_bytes() for wav_file in wav_files]
+    # The updated audio is present, but the original is not
+    assert b"updated generated audio for text: " + bytes(item["text"], "utf8") in wav_file_contents
+    assert b"generated audio for text: " + bytes(item["text"], "utf8") not in wav_file_contents
