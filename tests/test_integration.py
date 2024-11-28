@@ -120,7 +120,29 @@ def client(db_session):
     app.dependency_overrides[get_db] = override_get_db
     return TestClient(app)
 
-def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_model, test_cwd):
+@pytest.fixture
+def mock_combine_wav_to_mp3(monkeypatch):
+    """Mock the combine_wav_to_mp3 function to verify WAV file contents"""
+    call_count = 0
+
+    def mock_combine(wav_files, output_mp3_path):
+        nonlocal call_count
+        call_count += 1
+        # Read all WAV files and concatenate their contents
+        combined_contents = b""
+        for wav_file in wav_files:
+            with open(wav_file, "rb") as f:
+                combined_contents += f.read()
+
+        # Write the combined contents to the output MP3 file
+        with open(output_mp3_path, "wb") as f:
+            f.write(combined_contents)
+
+    monkeypatch.setattr("glowtalk.convert.combine_wav_to_mp3", mock_combine)
+    return lambda: call_count
+
+def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_model,
+                      mock_combine_wav_to_mp3, test_cwd):
     # 1. Create two speakers (Alice and Bob)
     for speaker_name in ["alice", "bob"]:
         response = client.post(
@@ -274,6 +296,27 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
         b"generated audio for text: Hi Alice!",
         b"generated audio for text: This is Bob."
     ]
+
+    assert mock_combine_wav_to_mp3() == 0
+    response = client.get(f"/api/audiobooks/{audiobook_id}/mp3")
+    assert response.status_code == 200
+    mp3_file = response.content
+    assert mp3_file == b"".join(wav_file_contents)
+    assert mock_combine_wav_to_mp3() == 1
+
+    # get it again, but it shouldn't call convert again
+    response = client.get(f"/api/audiobooks/{audiobook_id}/mp3")
+    assert response.status_code == 200
+    mp3_file = response.content
+    assert mp3_file == b"".join(wav_file_contents)
+    assert mock_combine_wav_to_mp3() == 1 # was cached
+
+    # but a POST request forces a new generation
+    response = client.post(f"/api/audiobooks/{audiobook_id}/mp3")
+    assert response.status_code == 200
+    mp3_file = response.content
+    assert mp3_file == b"".join(wav_file_contents)
+    assert mock_combine_wav_to_mp3() == 2
 
     response = client.post(f"/api/works/scrape_glowfic", json={"post_id": 5678})
     assert response.status_code == 200

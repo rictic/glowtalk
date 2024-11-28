@@ -277,6 +277,21 @@ def assign_work_item(request: TakeWorkRequest, db: Session = Depends(get_db)):
         reference_audio_hash = speaker.reference_voice.audio_hash
     )
 
+@app.get("/api/audiobooks/{audiobook_id}/mp3", response_class=FileResponse)
+def get_mp3_file(audiobook_id: int, db: Session = Depends(get_db)):
+    """Get an MP3 file for an audiobook"""
+    audiobook = db.get(models.Audiobook, audiobook_id)
+    if not audiobook:
+        raise HTTPException(status_code=404, detail="Audiobook not found")
+    return FileResponse(audiobook.get_or_generate_mp3(db))
+
+@app.post("/api/audiobooks/{audiobook_id}/mp3", response_class=FileResponse)
+def generate_mp3_file(audiobook_id: int, db: Session = Depends(get_db)):
+    """Generate an MP3 file for an audiobook"""
+    audiobook = db.get(models.Audiobook, audiobook_id)
+    if not audiobook:
+        raise HTTPException(status_code=404, detail="Audiobook not found")
+    return FileResponse(audiobook.generate_mp3(db))
 
 @app.post("/api/queue/{item_id}/complete/{worker_id}", response_model=None)
 async def complete_work_item(
