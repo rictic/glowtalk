@@ -231,21 +231,8 @@ def generate_audiobook(
     if not audiobook:
         raise HTTPException(status_code=404, detail="Audiobook not found")
 
-    # Get all content pieces that need voicing
-    unvoiced = models.ContentPiece.get_unvoiced(db)
-
-    # Add them to the work queue
-    for piece in unvoiced:
-        queue_item = models.WorkQueue(
-            content_piece_id=piece.id,
-            audiobook_id=audiobook_id,
-            speaker_id=piece.get_speaker_for_audiobook(db, audiobook).id,
-            priority=10
-        )
-        db.add(queue_item)
-
-    db.commit()
-    return {"message": "Generation started", "queued_items": unvoiced.count()}
+    count = audiobook.add_work_queue_items(db)
+    return {"message": "Generation started", "queued_items": count}
 
 @app.post("/api/queue/take", response_model=Optional[WorkQueueItemResponse])
 def assign_work_item(request: TakeWorkRequest, db: Session = Depends(get_db)):

@@ -201,8 +201,14 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     queue_status = client.get("/api/queue/status").json()
     assert queue_status == expected_queue_status
 
-    # MISSING API: We need a worker API endpoint that processes queue items
-    # For now, we'll simulate a worker directly
+    # Starting generation is idempotent
+    response = client.post(f"/api/audiobooks/{audiobook_id}/generate")
+    assert response.status_code == 200
+    queued_items = response.json()["queued_items"]
+    assert queued_items == 0
+    queue_status = client.get("/api/queue/status").json()
+    assert queue_status == expected_queue_status
+
     worker_id = "test_worker"
     while True:
         response = client.post("/api/queue/take", json={"worker_id": worker_id, "version": 1})

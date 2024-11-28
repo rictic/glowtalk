@@ -163,6 +163,48 @@ class Audiobook(Base):
                 wav_files.append(Path(performance.audio_file_path))
         return wav_files
 
+    def add_work_queue_items(self, session: Session):
+        # Get all content pieces that need voicing.
+        # We want to search for content pieces that are part of the original
+        # work for this audiobook, and that should be voiced.
+        should_voice = session.query(ContentPiece)\
+            .join(Part)\
+            .join(OriginalWork)\
+            .filter(
+                ContentPiece.should_voice == True,
+                ContentPiece.part_id == Part.id,
+                OriginalWork.id == self.original_work_id,
+            )\
+            .all()
+
+        # Add them to the work queue
+        added_count = 0
+        for piece in should_voice:
+            speaker = piece.get_speaker_for_audiobook(session, self)
+            # Does this speaker already have a performance for this content piece?
+            existing_performance = session.query(VoicePerformance)\
+                .filter(VoicePerformance.speaker_id == speaker.id, VoicePerformance.content_piece_id == piece.id)\
+                .first()
+            if existing_performance:
+                continue
+            # Do we already have a work queue item for this content piece and speaker?
+            existing_queue_item = session.query(WorkQueue)\
+                .filter(WorkQueue.content_piece_id == piece.id, WorkQueue.speaker_id == speaker.id)\
+                .first()
+            if existing_queue_item:
+                continue
+            # Add the work queue item
+            queue_item = WorkQueue(
+                content_piece_id=piece.id,
+                audiobook_id=self.id,
+                speaker_id=speaker.id,
+                priority=10
+            )
+            session.add(queue_item)
+            added_count += 1
+        session.commit()
+        return added_count
+
     def generate_mp3(self, session: Session):
         """Generate an MP3 file for this audiobook"""
         filename = str(uuid.uuid4()) + ".mp3"

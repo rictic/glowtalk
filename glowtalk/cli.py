@@ -195,10 +195,10 @@ def main():
     initialize_reference_voices(db)
     # query for the first audiobook in the database
     audiobook: models.Audiobook = db.query(models.Audiobook).first()
-    audiobook.generate_mp3(db, Path("deleteme.mp3"))
-    return
     if not audiobook:
         audiobook = create_audiobook(db)
+        
+
     worker = Worker(db, verbose=True)
     worker.work()
 
