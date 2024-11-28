@@ -9,6 +9,8 @@ import hashlib
 import os
 from pathlib import Path
 from typing import Optional
+from glowtalk import convert
+import time
 
 Base = declarative_base()
 
@@ -120,6 +122,7 @@ class Audiobook(Base):
     description = Column(String, nullable=True)
     forked_from_id = Column(Integer, ForeignKey('audiobooks.id'), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    mp3_path = Column(String, nullable=True)
 
     # Relationships
     original_work = relationship("OriginalWork", back_populates="audiobooks")
@@ -137,6 +140,46 @@ class Audiobook(Base):
         # that doesn't have a character voice for this audiobook
         # hm, but that's not possible in our current schema. need to change that
         raise NotImplementedError("Not implemented")
+
+    def get_wav_files(self, session: Session) -> Optional[list[Path]]:
+        """Get all the wav files for this audiobook"""
+        # Inefficient, but it's a start. Go through each content piece in each
+        # part, determine our preferred speaker, and get the audio file path
+        # for it
+        wav_files = []
+        original_work = self.original_work
+        for part in original_work.parts:
+            for content_piece in part.content_pieces:
+                if not content_piece.should_voice:
+                    continue
+                speaker = content_piece.get_speaker_for_audiobook(session, self)
+                # now get the performance for this speaker and content piece
+                performance = session.query(VoicePerformance)\
+                    .filter(VoicePerformance.speaker_id == speaker.id, VoicePerformance.content_piece_id == content_piece.id)\
+                    .first()
+                if not performance:
+                    return None
+                wav_files.append(Path(performance.audio_file_path))
+        return wav_files
+
+    def generate_mp3(self, session: Session):
+        """Generate an MP3 file for this audiobook"""
+        filename = str(uuid.uuid4()) + ".mp3"
+        output_path = Path(os.getcwd()) / "outputs" / filename
+        output_path = output_path.resolve()
+        wav_files = self.get_wav_files(session)
+        if wav_files is None:
+            return None
+        convert.combine_wav_to_mp3(wav_files, output_path)
+        self.mp3_path = str(output_path)
+        session.add(self)
+        session.commit()
+        return output_path
+
+    def get_or_generate_mp3(self, session: Session):
+        if self.mp3_path:
+            return Path(self.mp3_path)
+        return self.generate_mp3(session)
 
 class VoicePerformance(Base):
     __tablename__ = 'voice_performances'

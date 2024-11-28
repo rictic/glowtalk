@@ -286,7 +286,7 @@ async def complete_work_item(
     output_dir.mkdir(exist_ok=True)
     output_path = output_dir / f"{file_hash}.wav"
     # Normalize the path
-    output_path.resolve()
+    output_path = output_path.resolve()
     if not output_path.exists():
         output_path.write_bytes(file_content)
 

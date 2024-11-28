@@ -6,8 +6,6 @@ This is a small app that will only be used by a few people. It has a web presenc
 
 One unusual feature is that we separate out the frontend from the worker daemon. A worker daemon can be pointed at a frontend, which operates a work queue. You and your friends can run the worker daemon on a few of your computers, all pointed at the same frontend in order to generate the audiobook together. This is useful, because a lot of the best audio generation models are kinda slow.
 
-We use sqlite to store data, and alembic for migrations, so any time you make a change to the models, be sure to also create a new alembic migration.
-
 While care is taken for security and privacy, there's lots of ways a clever and malicious person can abuse it. For example, they can fill the work queue with nonsense. Your friends can also do that, but hopefully they'll at least have a good time.
 
 ## Main user flow
@@ -22,4 +20,8 @@ Then once you're ready, (or once you get bored fiddling with all of those detail
 
 You can re-render any snippet that didn't come out right (we push changes like that, that are short and that have a person waiting for them to the front of the work queue, so that you listen to the new version immediately). We also give you a button to cancel all of the pending work, in case you want to make a major change, like choose a different voice for a character.
 
+## Technical details
 
+We use sqlite to store data, and alembic for migrations, so any time you make a change to the models, be sure to also create a new alembic migration.
+
+We aim to make it as easy as possible to get started and use this project, so keeping the toolchain simple and stable is important. The main part of the code is written in Python 3.

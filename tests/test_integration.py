@@ -222,3 +222,7 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
 
     # MISSING API: We need an API to get the final audio files/manifest
     # This would be useful for actually playing back the audiobook
+    audiobook = db_session.get(models.Audiobook, audiobook_id)
+    wav_files = audiobook.get_wav_files(db_session)
+    assert len(wav_files) == 6
+
