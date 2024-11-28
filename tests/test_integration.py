@@ -163,11 +163,25 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     )
     assert response.status_code == 200
 
+    expected_queue_status = {
+        "pending": 0,
+        "in_progress": 0,
+        "completed": 0,
+        "failed": 0
+    }
+    queue_status = client.get("/api/queue/status").json()
+    assert queue_status == expected_queue_status
+
     # 5. Start generation
+
     response = client.post(f"/api/audiobooks/{audiobook_id}/generate")
     assert response.status_code == 200
     queued_items = response.json()["queued_items"]
     assert queued_items == 6  # Two Alice sentences, two Bob sentences, and two post announcements / descriptions.
+
+    expected_queue_status["pending"] = queued_items
+    queue_status = client.get("/api/queue/status").json()
+    assert queue_status == expected_queue_status
 
     # MISSING API: We need a worker API endpoint that processes queue items
     # For now, we'll simulate a worker directly
@@ -181,6 +195,11 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
         if item is None:
             break
 
+        expected_queue_status["in_progress"] += 1
+        expected_queue_status["pending"] -= 1
+        queue_status = client.get("/api/queue/status").json()
+        assert queue_status == expected_queue_status
+
         text = item["text"]
         assert item['speaker_model'] == "tts_models/multilingual/multi-dataset/xtts_v2"
         audio_hash = item['reference_audio_hash']
@@ -191,17 +210,10 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
         generated_audio = b"generated audio for text: " + bytes(text, "utf8")
         response = client.post(f"/api/queue/{item['id']}/complete/{worker_id}", files={"generated_audio": (f"{text}.wav", generated_audio)})
         assert response.status_code == 200
-
-
-    # 6. Verify the results
-    # Check queue status
-    response = client.get("/api/queue/status")
-    assert response.status_code == 200
-    status = response.json()
-    assert status["completed"] == 6
-    assert status["pending"] == 0
-    assert status["in_progress"] == 0
-    assert status["failed"] == 0
+        expected_queue_status["completed"] += 1
+        expected_queue_status["in_progress"] -= 1
+        queue_status = client.get("/api/queue/status").json()
+        assert queue_status == expected_queue_status
 
     # MISSING API: We need an API to get audiobook status/details
     # For now, query the database directly
@@ -225,4 +237,15 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     audiobook = db_session.get(models.Audiobook, audiobook_id)
     wav_files = audiobook.get_wav_files(db_session)
     assert len(wav_files) == 6
+
+    # Request regenerations for several new takes on a content piece
+    for i in range(3):
+        # get a voiced content piece
+        content_piece = db_session.query(models.ContentPiece).filter(models.ContentPiece.should_voice == True).first()
+        assert content_piece is not None
+        response = client.post(f"/api/content_pieces/{content_piece.id}/voice", json={"audiobook_id": audiobook_id})
+        assert response.status_code == 200
+        expected_queue_status["pending"] += 1
+        queue_status = client.get("/api/queue/status").json()
+        assert queue_status == expected_queue_status
 

@@ -89,6 +89,9 @@ class WorkItemCompletionRequest(BaseModel):
     worker_id: str
     performance_path: str
 
+class RegenerateContentPieceRequest(BaseModel):
+    audiobook_id: int
+
 
 # --- API Routes ---
 
@@ -232,19 +235,17 @@ def generate_audiobook(
     unvoiced = models.ContentPiece.get_unvoiced(db)
 
     # Add them to the work queue
-    i = 0
     for piece in unvoiced:
         queue_item = models.WorkQueue(
             content_piece_id=piece.id,
             audiobook_id=audiobook_id,
             speaker_id=piece.get_speaker_for_audiobook(db, audiobook).id,
-            priority=0
+            priority=10
         )
         db.add(queue_item)
-        i += 1
 
     db.commit()
-    return {"message": "Generation started", "queued_items": i}
+    return {"message": "Generation started", "queued_items": unvoiced.count()}
 
 @app.post("/api/queue/take", response_model=Optional[WorkQueueItemResponse])
 def assign_work_item(request: TakeWorkRequest, db: Session = Depends(get_db)):
@@ -323,3 +324,24 @@ def get_queue_status(db: Session = Depends(get_db)):
         "completed": completed,
         "failed": failed
     }
+
+@app.post("/api/content_pieces/{content_piece_id}/voice")
+def voice_content_piece(content_piece_id: int, request: RegenerateContentPieceRequest, db: Session = Depends(get_db)):
+    """Request a new voice performance for a content piece"""
+    content_piece = db.get(models.ContentPiece, content_piece_id)
+    audiobook = db.get(models.Audiobook, request.audiobook_id)
+    if not content_piece:
+        raise HTTPException(status_code=404, detail="Content piece not found")
+    if not audiobook:
+        raise HTTPException(status_code=404, detail="Audiobook not found")
+
+    # Create a new work item for the content piece
+    queue_item = models.WorkQueue(
+        content_piece_id=content_piece.id,
+        audiobook_id=audiobook.id,
+        speaker_id=content_piece.get_speaker_for_audiobook(db, audiobook).id,
+        priority=100
+    )
+    db.add(queue_item)
+    db.commit()
+    return {"work_item_id": queue_item.id}

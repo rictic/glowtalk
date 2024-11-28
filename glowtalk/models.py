@@ -156,6 +156,7 @@ class Audiobook(Base):
                 # now get the performance for this speaker and content piece
                 performance = session.query(VoicePerformance)\
                     .filter(VoicePerformance.speaker_id == speaker.id, VoicePerformance.content_piece_id == content_piece.id)\
+                    .order_by(VoicePerformance.generation_date.desc())\
                     .first()
                 if not performance:
                     return None
