@@ -105,9 +105,13 @@ class Worker:
 
         except Exception as e:
             print(f"Failed to process work item: {str(e)}")
-            failure_response = self.client.post(
-                f"/api/queue/{work_item['id']}/fail/{self.worker_id}",
-                json={"error": str(e)}
-            )
-            if failure_response.status_code != 200:
-                print(f"Error marking work item as failed: {failure_response.status_code} {failure_response.text}")
+            try:
+                failure_response = self.client.post(
+                    f"/api/queue/{work_item['id']}/fail/{self.worker_id}",
+                    json={"error": str(e)}
+                )
+                if failure_response.status_code != 200:
+                    print(f"Error marking work item as failed: {failure_response.status_code} {failure_response.text}")
+            except:
+                # Don't worry about it, we tried. Probably the API is down.
+                pass
