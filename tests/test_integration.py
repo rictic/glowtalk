@@ -253,8 +253,25 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
         assert expected_queue_status == client.get("/api/queue/status").json()
 
 
-    # MISSING API: We need an API to get audiobook status/details
-    # For now, query the database directly
+    response = client.get(f"/api/audiobooks/{audiobook_id}/details")
+    assert response.status_code == 200
+    audiobook_details = response.json()
+    assert audiobook_details["id"] == audiobook_id
+    assert audiobook_details["default_speaker_id"] == alice_speaker_id
+    print(audiobook_details)
+    assert audiobook_details["characters"] == [
+        {
+            'character_name': 'Alice',
+            'reference_voice': 'alice',
+            'model': 'tts_models/multilingual/multi-dataset/xtts_v2'
+        },
+        {
+            'character_name': 'Bob',
+            'reference_voice': 'bob',
+            'model': 'tts_models/multilingual/multi-dataset/xtts_v2'
+        }
+    ]
+
     performances = db_session.query(VoicePerformance).all()
     assert len(performances) == 6
 

@@ -13,58 +13,12 @@ from glowtalk import glowfic_scraper
 from fastapi.responses import FileResponse
 import hashlib
 from fastapi.staticfiles import StaticFiles
-import logging
-from contextlib import asynccontextmanager
-import time
+from fastapi.middleware.cors import CORSMiddleware
 import traceback
+from fastapi.responses import JSONResponse
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    logger.info("Starting GlowTalk API server")
-    logger.info("Configured routes:")
-    for route in app.routes:
-        if hasattr(route, "methods"):  # API routes
-            logger.info(f"{route.methods} {route.path}")
-        else:  # Static file mounts and other special routes
-            logger.info(f"Mount: {route.path}")
-    yield
-    # Shutdown (if you need any cleanup code)
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 SessionLocal = None
-
-@app.middleware("http")
-async def logging_middleware(request: Request, call_next: Callable):
-    # Log request
-    start_time = time.time()
-    path = request.url.path
-    method = request.method
-    logger.info(f"Request: {method} {path}")
-
-    try:
-        # Process request
-        response = await call_next(request)
-
-        # Log successful response
-        duration = time.time() - start_time
-        logger.info(
-            f"Response: {method} {path} - Status: {response.status_code} - Duration: {duration:.3f}s"
-        )
-        return response
-
-    except Exception as e:
-        # Log failed requests with full traceback
-        duration = time.time() - start_time
-        logger.error(
-            f"Error processing {method} {path} - Duration: {duration:.3f}s\n"
-            f"Error: {str(e)}\n"
-            f"Traceback: {traceback.format_exc()}"
-        )
-        raise
 
 # Then continue with your routes and other app configuration...
 app.mount("/static", StaticFiles(directory="glowtalk/static/dist"), name="static")
@@ -73,7 +27,18 @@ app.mount("/static", StaticFiles(directory="glowtalk/static/dist"), name="static
 def get_db():
     global SessionLocal
     if SessionLocal is None:
-        SessionLocal = init_db()
+        try:
+            SessionLocal = init_db()
+        except Exception as e:
+            print("\n=== Database Initialization Error ===")
+            print(f"Error initializing database: {e}")
+            traceback.print_exc()
+            print("=====================================\n")
+            raise HTTPException(
+                status_code=500,
+                detail="Database initialization failed"
+            ) from e
+
     session = SessionLocal()
     try:
         yield session
@@ -156,6 +121,29 @@ class GetWavFilesResponse(BaseModel):
 
 class WorkItemFailureRequest(BaseModel):
     error: str
+
+class CharacterVoiceDetailResponse(BaseModel):
+    character_name: str
+    reference_voice: Optional[str] = None
+    model: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class AudiobookDetailResponse(BaseModel):
+    id: int
+    original_work_id: int
+    description: Optional[str] = None
+    default_speaker_id: Optional[int] = None
+    created_at: datetime
+    characters: List[CharacterVoiceDetailResponse]
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ReferenceVoiceResponse(BaseModel):
+    audio_hash: str
+    name: str
+    description: Optional[str]
+    transcript: Optional[str]
 
 # --- API Routes ---
 
@@ -283,6 +271,7 @@ async def create_speaker(
         # Raise if file content is not bytes
         if not isinstance(file_content, bytes):
             raise ValueError("Reference audio must be a bytes object")
+        print(f"Saving reference audio for {name}")
         save_reference_audio(file_content, name)
         # Try to convert the model string to a SpeakerModel enum
         model = models.SpeakerModel[model]
@@ -297,6 +286,16 @@ async def create_speaker(
         return new_speaker
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/speaker_models", response_model=List[dict])
+def get_speaker_models():
+    """Get all speaker models"""
+    return [{"name": model.value} for model in models.SpeakerModel]
+
+@app.get("/api/reference_voices", response_model=List[ReferenceVoiceResponse])
+def get_reference_voices(db: Session = Depends(get_db)):
+    """Get all reference voices"""
+    return db.query(models.ReferenceVoice).all()
 
 @app.get("/api/reference_voices/{audio_hash}", response_class=FileResponse)
 def get_reference_voice(audio_hash: str, db: Session = Depends(get_db)):
@@ -462,9 +461,86 @@ def voice_content_piece(content_piece_id: int, request: RegenerateContentPieceRe
     db.commit()
     return {"work_item_id": queue_item.id}
 
+@app.get("/api/audiobooks/{audiobook_id}/details", response_model=AudiobookDetailResponse)
+def get_audiobook_details(audiobook_id: int, db: Session = Depends(get_db)):
+    """Get detailed information about an audiobook including character voices"""
+    audiobook = db.get(models.Audiobook, audiobook_id)
+    if not audiobook:
+        raise HTTPException(status_code=404, detail="Audiobook not found")
+
+    # Get all unique character names from content pieces
+    characters = db.query(models.Part.character)\
+        .select_from(models.Part)\
+        .join(models.OriginalWork)\
+        .join(models.Audiobook, models.Audiobook.original_work_id == models.OriginalWork.id)\
+        .filter(
+            models.Audiobook.id == audiobook_id,
+            models.Part.original_work_id == models.OriginalWork.id,
+            models.Part.character != None
+        )\
+        .distinct()\
+        .all()
+    # authors_with_plain_author_posts = db.query(models.Part.author)\
+    #     .join(models.Audiobook)\
+    #     .join(models.OriginalWork)\
+    #     .filter(
+    #         models.Audiobook.id == audiobook_id,
+    #         models.OriginalWork.id == models.Audiobook.original_work_id,
+    #         models.Part.original_work_id == models.OriginalWork.id,
+    #         models.Part.character == None
+    #     )\
+    #     .distinct()\
+    #     .all()
+
+    # Create response with character voices
+    character_voices = []
+    for (char_name,) in characters:
+        voice = db.query(models.CharacterVoice)\
+            .filter(
+                models.CharacterVoice.audiobook_id == audiobook_id,
+                models.CharacterVoice.character_name == char_name
+            ).first()
+        if voice is None:
+            character_voices.append(CharacterVoiceDetailResponse(
+                character_name=char_name,
+                reference_voice=None,
+                model=None
+            ))
+            continue
+        character_voices.append(CharacterVoiceDetailResponse(
+            character_name=char_name,
+            reference_voice=voice.speaker.reference_voice.name,
+            model=voice.speaker.model
+        ))
+
+    return AudiobookDetailResponse(
+        **audiobook.__dict__,
+        characters=character_voices
+    )
+
 @app.get("/{path:path}")
 async def catch_all(path: str):
     """Serve index.html for all non-API routes to support client-side routing"""
-    if path.startswith("api/") or path.startswith("static/"):
-        raise HTTPException(status_code=404, detail="Not found")
+    if path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API Not found")
+    if path.startswith("static/"):
+        raise HTTPException(status_code=404, detail="File not found")
     return FileResponse("glowtalk/static/dist/index.html")
+
+@app.middleware("http")
+async def catch_exceptions_middleware(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        return response
+    except Exception as e:
+        # Print the full stack trace to terminal
+        print("\n\n=== Uncaught API Error ===")
+        print(f"Request: {request.method} {request.url}")
+        traceback.print_exc()
+        print("========================\n")
+
+        # Return error response to client
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(e)}
+        )

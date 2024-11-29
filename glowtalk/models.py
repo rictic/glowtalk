@@ -262,12 +262,15 @@ class ReferenceVoice(Base):
     description = Column(String, nullable=True)
     transcript = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    name = Column(String, nullable=False)
 
     # Relationships
     speakers = relationship("Speaker", back_populates="reference_voice")
 
+    # This should probably be deleted, since we're moving to
+    # paths built on hashes.
     @classmethod
-    def get_or_create(cls, session: Session, audio_path: Path, description=None, transcript=None):
+    def get_or_create(cls, session: Session, audio_path: Path, name: str, description=None, transcript=None):
         """Get or create a reference voice from an audio file"""
         # Check that the path is a Path
         if not isinstance(audio_path, Path):
@@ -281,6 +284,7 @@ class ReferenceVoice(Base):
         if not reference:
             audio_hash = hashlib.sha256(open(audio_path, "rb").read()).hexdigest()
             reference = cls(
+                name=name,
                 audio_path=str(audio_path),
                 audio_hash=audio_hash,
                 description=description,
@@ -305,6 +309,7 @@ class Speaker(Base):
         reference_voice = ReferenceVoice.get_or_create(
             session,
             reference_audio_path,
+            name=name,
             description=description,
             transcript=transcript
         )

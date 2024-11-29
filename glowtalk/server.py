@@ -51,6 +51,7 @@ def initialize_reference_voices(db: Session):
         models.ReferenceVoice.get_or_create(
             db,
             audio_path=Path(os.getcwd()) / "references" / f"{name}.wav",
+            name=name,
             description=info["description"],
             transcript=info["transcript"]
         )
@@ -160,9 +161,10 @@ def start_server(host="0.0.0.0", port=8585):
     # Run the FastAPI server
     print(f"Running GlowTalk at {host}:{port}")
     uvicorn.run(
-        app,
+        "glowtalk.api:app",
         host=host,
         port=port,
-        log_level="debug",  # Only show warnings and errors from uvicorn
-        access_log=False      # Disable uvicorn's access logs since we have our own
+        log_level="debug",
+        reload=True,
+        reload_dirs=["glowtalk"]
     )

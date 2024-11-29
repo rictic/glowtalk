@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import type { Work, Audiobook } from '../types';
 
 export function WorkDetails() {
@@ -78,7 +78,12 @@ export function WorkDetails() {
                     <div className="audiobooks-grid">
                         {audiobooks.map(audiobook => (
                             <div key={audiobook.id} className="audiobook-card">
-                                <h3>Audiobook #{audiobook.id}</h3>
+                                <Link
+                                    to={`/audiobooks/${audiobook.id}`}
+                                    className="audiobook-title"
+                                >
+                                    <h3>Audiobook #{audiobook.id}</h3>
+                                </Link>
                                 {audiobook.description && (
                                     <p>{audiobook.description}</p>
                                 )}

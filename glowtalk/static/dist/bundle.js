@@ -1085,7 +1085,7 @@
             }
             return dispatcher.useContext(Context);
           }
-          function useState8(initialState) {
+          function useState9(initialState) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useState(initialState);
           }
@@ -1097,7 +1097,7 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useRef(initialValue);
           }
-          function useEffect8(create, deps) {
+          function useEffect9(create, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useEffect(create, deps);
           }
@@ -1880,7 +1880,7 @@
           exports.useContext = useContext5;
           exports.useDebugValue = useDebugValue;
           exports.useDeferredValue = useDeferredValue;
-          exports.useEffect = useEffect8;
+          exports.useEffect = useEffect9;
           exports.useId = useId2;
           exports.useImperativeHandle = useImperativeHandle;
           exports.useInsertionEffect = useInsertionEffect;
@@ -1888,7 +1888,7 @@
           exports.useMemo = useMemo5;
           exports.useReducer = useReducer;
           exports.useRef = useRef6;
-          exports.useState = useState8;
+          exports.useState = useState9;
           exports.useSyncExternalStore = useSyncExternalStore;
           exports.useTransition = useTransition;
           exports.version = ReactVersion;
@@ -2384,9 +2384,9 @@
           if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ !== "undefined" && typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart === "function") {
             __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(new Error());
           }
-          var React18 = require_react();
+          var React19 = require_react();
           var Scheduler = require_scheduler();
-          var ReactSharedInternals = React18.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+          var ReactSharedInternals = React19.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
           var suppressWarning = false;
           function setSuppressWarning(newSuppressWarning) {
             {
@@ -3991,7 +3991,7 @@
             {
               if (props.value == null) {
                 if (typeof props.children === "object" && props.children !== null) {
-                  React18.Children.forEach(props.children, function(child) {
+                  React19.Children.forEach(props.children, function(child) {
                     if (child == null) {
                       return;
                     }
@@ -23719,7 +23719,7 @@
       if (true) {
         (function() {
           "use strict";
-          var React18 = require_react();
+          var React19 = require_react();
           var REACT_ELEMENT_TYPE = Symbol.for("react.element");
           var REACT_PORTAL_TYPE = Symbol.for("react.portal");
           var REACT_FRAGMENT_TYPE = Symbol.for("react.fragment");
@@ -23745,7 +23745,7 @@
             }
             return null;
           }
-          var ReactSharedInternals = React18.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+          var ReactSharedInternals = React19.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
           function error(format) {
             {
               {
@@ -24595,11 +24595,11 @@
               return jsxWithValidation(type, props, key, false);
             }
           }
-          var jsx7 = jsxWithValidationDynamic;
-          var jsxs6 = jsxWithValidationStatic;
+          var jsx8 = jsxWithValidationDynamic;
+          var jsxs7 = jsxWithValidationStatic;
           exports.Fragment = REACT_FRAGMENT_TYPE;
-          exports.jsx = jsx7;
-          exports.jsxs = jsxs6;
+          exports.jsx = jsx8;
+          exports.jsxs = jsxs7;
         })();
       }
     }
@@ -24618,7 +24618,7 @@
   });
 
   // src/main.tsx
-  var import_react4 = __toESM(require_react());
+  var import_react5 = __toESM(require_react());
   var import_client = __toESM(require_client());
 
   // node_modules/react-router/dist/production/chunk-7R3XDUXW.mjs
@@ -27117,10 +27117,17 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
       /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "audiobooks-section", children: [
         /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("h2", { children: "Audiobooks" }),
         audiobooks.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { children: "No audiobooks yet." }) : /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "audiobooks-grid", children: audiobooks.map((audiobook) => /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "audiobook-card", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("h3", { children: [
-            "Audiobook #",
-            audiobook.id
-          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            Link,
+            {
+              to: `/audiobooks/${audiobook.id}`,
+              className: "audiobook-title",
+              children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("h3", { children: [
+                "Audiobook #",
+                audiobook.id
+              ] })
+            }
+          ),
           audiobook.description && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { children: audiobook.description }),
           /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("p", { children: [
             "Created: ",
@@ -27141,23 +27148,152 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
     ] });
   }
 
-  // src/App.tsx
+  // src/pages/AudiobookDetails.tsx
+  var import_react4 = __toESM(require_react());
   var import_jsx_runtime5 = __toESM(require_jsx_runtime());
+  function AudiobookDetails() {
+    const { audiobookId } = useParams();
+    const [audiobook, setAudiobook] = (0, import_react4.useState)(null);
+    const [work, setWork] = (0, import_react4.useState)(null);
+    const [referenceVoices, setReferenceVoices] = (0, import_react4.useState)([]);
+    const [loading, setLoading] = (0, import_react4.useState)(true);
+    const [error, setError] = (0, import_react4.useState)(null);
+    (0, import_react4.useEffect)(() => {
+      fetchData();
+    }, [audiobookId]);
+    const fetchData = async () => {
+      try {
+        const audiobookResponse = await fetch(`/api/audiobooks/${audiobookId}/details`);
+        if (!audiobookResponse.ok)
+          throw new Error("Failed to fetch audiobook details");
+        const audiobookData = await audiobookResponse.json();
+        setAudiobook(audiobookData);
+        const workResponse = await fetch(`/api/works/${audiobookData.original_work_id}`);
+        if (!workResponse.ok)
+          throw new Error("Failed to fetch work details");
+        const workData = await workResponse.json();
+        setWork(workData);
+        const referenceVoicesResponse = await fetch("/api/reference_voices");
+        if (!referenceVoicesResponse.ok)
+          throw new Error("Failed to fetch reference voices");
+        const referenceVoicesData = await referenceVoicesResponse.json();
+        setReferenceVoices(referenceVoicesData);
+      } catch (error2) {
+        console.error("Error:", error2);
+        setError("Failed to load audiobook details");
+      } finally {
+        setLoading(false);
+      }
+    };
+    const updateDefaultSpeaker = async (speakerId) => {
+      try {
+        const response = await fetch(`/api/audiobooks/${audiobookId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ default_speaker_id: speakerId })
+        });
+        if (!response.ok)
+          throw new Error("Failed to update default speaker");
+        const updatedAudiobook = await response.json();
+        setAudiobook((prev) => prev ? { ...prev, ...updatedAudiobook } : null);
+      } catch (error2) {
+        console.error("Error:", error2);
+        alert("Failed to update default speaker");
+      }
+    };
+    const updateCharacterVoice = async (characterName, speakerId) => {
+      try {
+        const response = await fetch(`/api/audiobooks/${audiobookId}/character-voices`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            character_name: characterName,
+            speaker_id: speakerId
+          })
+        });
+        if (!response.ok)
+          throw new Error("Failed to update character voice");
+        await fetchData();
+      } catch (error2) {
+        console.error("Error:", error2);
+        alert("Failed to update character voice");
+      }
+    };
+    if (loading)
+      return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { children: "Loading..." });
+    if (error)
+      return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "error", children: error });
+    if (!audiobook || !work)
+      return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { children: "Audiobook not found" });
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "audiobook-details", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Link, { to: `/works/${work.id}`, className: "back-link", children: "\u2190 Back to Work" }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("h1", { children: [
+        work.title || `Glowfic #${work.id}`,
+        " - Audiobook"
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("section", { className: "voice-settings", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("h2", { children: "Voice Settings" }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "default-voice", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("h3", { children: "Default Voice" }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+            "select",
+            {
+              value: audiobook.default_speaker_id || "",
+              onChange: (e) => updateDefaultSpeaker(Number(e.target.value)),
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("option", { value: "", children: "Select a default voice" }),
+                referenceVoices.map((voice) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("option", { value: voice.audio_hash, children: voice.name }, voice.audio_hash))
+              ]
+            }
+          )
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "character-voices", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("h3", { children: "Character Voices" }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("table", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("thead", { children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("tr", { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("th", { children: "Character" }),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("th", { children: "Speaker" }),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("th", { children: "Actions" })
+            ] }) }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("tbody", { children: audiobook.characters.map((character) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("tr", { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("td", { children: character.character_name }),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("td", { children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+                "select",
+                {
+                  value: character.speaker_id || "",
+                  onChange: (e) => updateCharacterVoice(character.character_name, Number(e.target.value)),
+                  children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("option", { value: "", children: "Select a speaker" }),
+                    referenceVoices.map((voice) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("option", { value: voice.audio_hash, children: voice.name }, voice.audio_hash))
+                  ]
+                }
+              ) }),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("td", { children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { onClick: () => updateCharacterVoice(character.character_name, character.speaker_id), children: "Update" }) })
+            ] }, character.character_name)) })
+          ] })
+        ] })
+      ] })
+    ] });
+  }
+
+  // src/App.tsx
+  var import_jsx_runtime6 = __toESM(require_jsx_runtime());
   function App() {
-    return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(BrowserRouter, { children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "container", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Routes, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Route, { path: "/", element: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Home, {}) }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Route, { path: "/works/:workId", element: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(WorkDetails, {}) })
+    return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(BrowserRouter, { children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "container", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(Routes, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(Route, { path: "/", element: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(Home, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(Route, { path: "/works/:workId", element: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(WorkDetails, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(Route, { path: "/audiobooks/:audiobookId", element: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(AudiobookDetails, {}) })
     ] }) }) });
   }
 
   // src/main.tsx
-  var import_jsx_runtime6 = __toESM(require_jsx_runtime());
+  var import_jsx_runtime7 = __toESM(require_jsx_runtime());
   var container = document.getElementById("root");
   if (!container)
     throw new Error("Failed to find root element");
   var root = (0, import_client.createRoot)(container);
   root.render(
-    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(import_react4.default.StrictMode, { children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(App, {}) })
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_react5.default.StrictMode, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(App, {}) })
   );
 })();
 /*! Bundled license information:

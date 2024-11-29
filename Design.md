@@ -22,6 +22,8 @@ You can re-render any snippet that didn't come out right (we push changes like t
 
 ## Technical details
 
-We use sqlite to store data, and alembic for migrations, so any time you make a change to the models, be sure to also create a new alembic migration.
+We use sqlite to store data.
 
 We aim to make it as easy as possible to get started and use this project, so keeping the toolchain simple and stable is important. The main part of the code is written in Python 3.
+
+The frontend is written in typescript, and npm is used to manage its dependencies, but we check in the built output, so devs will only need to install those deps if they want to make changes to the web frontend.
