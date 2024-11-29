@@ -15,11 +15,13 @@ export interface Audiobook {
 
 export interface AudiobookDetail extends Audiobook {
   characters: CharacterVoice[];
+  default_speaker: CharacterVoice | null;
 }
 
 export interface CharacterVoice {
   character_name: string;
-  speaker_id: number | null;
+  reference_voice: string;
+  model: string;
 }
 
 export interface ReferenceVoice {

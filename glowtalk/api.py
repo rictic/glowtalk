@@ -89,7 +89,8 @@ class SpeakerCreate(BaseModel):
 
 class CharacterVoiceCreate(BaseModel):
     character_name: str
-    speaker_id: int
+    voice_name: str
+    model: Optional[str]
 
 class AudiobookCreate(BaseModel):
     description: Optional[str] = None
@@ -133,7 +134,7 @@ class AudiobookDetailResponse(BaseModel):
     id: int
     original_work_id: int
     description: Optional[str] = None
-    default_speaker_id: Optional[int] = None
+    default_speaker: Optional[CharacterVoiceDetailResponse] = None
     created_at: datetime
     characters: List[CharacterVoiceDetailResponse]
 
@@ -144,6 +145,10 @@ class ReferenceVoiceResponse(BaseModel):
     name: str
     description: Optional[str]
     transcript: Optional[str]
+
+class SetDefaultSpeakerRequest(BaseModel):
+    voice_name: str
+    model: Optional[str]
 
 # --- API Routes ---
 
@@ -217,6 +222,27 @@ def create_audiobook(
     db.refresh(new_audiobook)
     return new_audiobook
 
+@app.post("/api/audiobooks/{audiobook_id}/set_default_speaker", response_model=AudiobookResponse)
+def set_default_speaker(audiobook_id: int, request: SetDefaultSpeakerRequest, db: Session = Depends(get_db)):
+    """Set the default speaker for an audiobook"""
+    audiobook = db.get(models.Audiobook, audiobook_id)
+    if not audiobook:
+        raise HTTPException(status_code=404, detail="Audiobook not found")
+    voice_name = request.voice_name
+    reference_voice = models.ReferenceVoice.get_by_name(db, voice_name)
+    if not reference_voice:
+        raise HTTPException(status_code=404, detail=f"Reference voice not found with name {voice_name}")
+
+    model = models.SpeakerModel.default()
+    if request.model:
+        model = models.SpeakerModel[request.model]
+
+    speaker = models.Speaker.get_or_create_with_reference_voice(db, reference_voice, voice_name, model)
+    audiobook.default_speaker = speaker
+    db.commit()
+    db.refresh(audiobook)
+    return audiobook
+
 @app.get("/api/works/{work_id}/audiobooks", response_model=List[AudiobookResponse])
 def get_audiobooks_for_work(work_id: int, db: Session = Depends(get_db)):
     """Get all audiobooks for a specific work"""
@@ -229,15 +255,21 @@ def set_character_voice(
     db: Session = Depends(get_db)
 ):
     """Set or update a character's voice in an audiobook"""
-    speaker = db.get(models.Speaker, voice.speaker_id)
-    if not speaker:
-        raise HTTPException(status_code=404, detail="Speaker not found")
+    reference_voice = models.ReferenceVoice.get_by_name(db, voice.voice_name)
+    if not reference_voice:
+        raise HTTPException(status_code=404, detail=f"Reference voice not found with name {voice.voice_name}")
+
+    model = models.SpeakerModel.default()
+    if voice.model:
+        model = models.SpeakerModel[voice.model]
+
+    speaker = models.Speaker.get_or_create_with_reference_voice(db, reference_voice, voice.voice_name, model)
 
     audiobook = db.get(models.Audiobook, audiobook_id)
     if not audiobook:
         raise HTTPException(status_code=404, detail="Audiobook not found")
 
-    char_voice = models.CharacterVoice.get_or_create(
+    char_voice = models.CharacterVoice.get_or_update(
         db, audiobook, voice.character_name, speaker
     )
     db.commit()
@@ -513,8 +545,19 @@ def get_audiobook_details(audiobook_id: int, db: Session = Depends(get_db)):
             model=voice.speaker.model
         ))
 
+    default_speaker = audiobook.default_speaker
+    if default_speaker:
+        default_speaker = CharacterVoiceDetailResponse(
+            character_name='Default speaker',
+            reference_voice=default_speaker.reference_voice.name,
+            model=default_speaker.model
+        )
+
+    audiobook_dict = dict(audiobook.__dict__)
+    audiobook_dict['default_speaker'] = default_speaker
+
     return AudiobookDetailResponse(
-        **audiobook.__dict__,
+        **audiobook_dict,
         characters=character_voices
     )
 
@@ -526,6 +569,10 @@ async def catch_all(path: str):
     if path.startswith("static/"):
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse("glowtalk/static/dist/index.html")
+
+@app.post("/api/{path:path}")
+async def catch_all_post(path: str, request: Request):
+    return JSONResponse(status_code=404, content={"detail": "API Not found"})
 
 @app.middleware("http")
 async def catch_exceptions_middleware(request: Request, call_next):

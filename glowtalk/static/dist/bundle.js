@@ -1085,7 +1085,7 @@
             }
             return dispatcher.useContext(Context);
           }
-          function useState9(initialState) {
+          function useState10(initialState) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useState(initialState);
           }
@@ -1093,11 +1093,11 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useReducer(reducer, initialArg, init);
           }
-          function useRef6(initialValue) {
+          function useRef7(initialValue) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useRef(initialValue);
           }
-          function useEffect9(create, deps) {
+          function useEffect10(create, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useEffect(create, deps);
           }
@@ -1880,15 +1880,15 @@
           exports.useContext = useContext5;
           exports.useDebugValue = useDebugValue;
           exports.useDeferredValue = useDeferredValue;
-          exports.useEffect = useEffect9;
+          exports.useEffect = useEffect10;
           exports.useId = useId2;
           exports.useImperativeHandle = useImperativeHandle;
           exports.useInsertionEffect = useInsertionEffect;
           exports.useLayoutEffect = useLayoutEffect4;
           exports.useMemo = useMemo5;
           exports.useReducer = useReducer;
-          exports.useRef = useRef6;
-          exports.useState = useState9;
+          exports.useRef = useRef7;
+          exports.useState = useState10;
           exports.useSyncExternalStore = useSyncExternalStore;
           exports.useTransition = useTransition;
           exports.version = ReactVersion;
@@ -2384,9 +2384,9 @@
           if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ !== "undefined" && typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart === "function") {
             __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(new Error());
           }
-          var React19 = require_react();
+          var React20 = require_react();
           var Scheduler = require_scheduler();
-          var ReactSharedInternals = React19.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+          var ReactSharedInternals = React20.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
           var suppressWarning = false;
           function setSuppressWarning(newSuppressWarning) {
             {
@@ -3991,7 +3991,7 @@
             {
               if (props.value == null) {
                 if (typeof props.children === "object" && props.children !== null) {
-                  React19.Children.forEach(props.children, function(child) {
+                  React20.Children.forEach(props.children, function(child) {
                     if (child == null) {
                       return;
                     }
@@ -23719,7 +23719,7 @@
       if (true) {
         (function() {
           "use strict";
-          var React19 = require_react();
+          var React20 = require_react();
           var REACT_ELEMENT_TYPE = Symbol.for("react.element");
           var REACT_PORTAL_TYPE = Symbol.for("react.portal");
           var REACT_FRAGMENT_TYPE = Symbol.for("react.fragment");
@@ -23745,7 +23745,7 @@
             }
             return null;
           }
-          var ReactSharedInternals = React19.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+          var ReactSharedInternals = React20.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
           function error(format) {
             {
               {
@@ -24595,11 +24595,11 @@
               return jsxWithValidation(type, props, key, false);
             }
           }
-          var jsx8 = jsxWithValidationDynamic;
-          var jsxs7 = jsxWithValidationStatic;
+          var jsx9 = jsxWithValidationDynamic;
+          var jsxs8 = jsxWithValidationStatic;
           exports.Fragment = REACT_FRAGMENT_TYPE;
-          exports.jsx = jsx8;
-          exports.jsxs = jsxs7;
+          exports.jsx = jsx9;
+          exports.jsxs = jsxs8;
         })();
       }
     }
@@ -24618,7 +24618,7 @@
   });
 
   // src/main.tsx
-  var import_react5 = __toESM(require_react());
+  var import_react6 = __toESM(require_react());
   var import_client = __toESM(require_client());
 
   // node_modules/react-router/dist/production/chunk-7R3XDUXW.mjs
@@ -27149,16 +27149,117 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
   }
 
   // src/pages/AudiobookDetails.tsx
+  var import_react5 = __toESM(require_react());
+
+  // src/components/VoiceSelector.tsx
   var import_react4 = __toESM(require_react());
   var import_jsx_runtime5 = __toESM(require_jsx_runtime());
+  function VoiceSelector({ voices, selectedVoiceName, onSelect, label }) {
+    const [isExpanded, setIsExpanded] = (0, import_react4.useState)(false);
+    const [playingVoiceId, setPlayingVoiceId] = (0, import_react4.useState)(null);
+    const audioRef = (0, import_react4.useRef)(null);
+    const selectedVoice = voices.find((v) => v.name === selectedVoiceName);
+    const playAudio = async (audioHash) => {
+      if (playingVoiceId === audioHash) {
+        audioRef.current?.pause();
+        audioRef.current = null;
+        setPlayingVoiceId(null);
+        return;
+      }
+      try {
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+        const audio = new Audio(`/api/reference_voices/${audioHash}`);
+        audioRef.current = audio;
+        audio.addEventListener("ended", () => {
+          setPlayingVoiceId(null);
+          audioRef.current = null;
+        });
+        setPlayingVoiceId(audioHash);
+        await audio.play();
+      } catch (error) {
+        console.error("Failed to play audio:", error);
+        setPlayingVoiceId(null);
+        audioRef.current = null;
+      }
+    };
+    (0, import_react4.useEffect)(() => {
+      return () => {
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+      };
+    }, []);
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "voice-selector", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "voice-selector-header", onClick: () => setIsExpanded(!isExpanded), children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
+          label,
+          ": ",
+          selectedVoice?.name || "None selected"
+        ] }),
+        selectedVoice && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+          "button",
+          {
+            type: "button",
+            onClick: (ev) => {
+              ev.stopPropagation();
+              playAudio(selectedVoice.audio_hash);
+            },
+            className: playingVoiceId === selectedVoice.audio_hash ? "playing" : "",
+            children: playingVoiceId === selectedVoice.audio_hash ? "Stop" : "Play Sample"
+          }
+        )
+      ] }),
+      isExpanded && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "voice-selector-options", children: voices.map((voice) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+        "div",
+        {
+          className: `voice-option ${voice.name === selectedVoiceName ? "selected" : ""}`,
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "voice-info", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("h4", { children: voice.name }),
+              voice.description && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("p", { children: voice.description })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "voice-actions", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                "button",
+                {
+                  type: "button",
+                  onClick: () => playAudio(voice.audio_hash),
+                  className: playingVoiceId === voice.audio_hash ? "playing" : "",
+                  children: playingVoiceId === voice.audio_hash ? "Stop" : "Play Sample"
+                }
+              ),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                "button",
+                {
+                  type: "button",
+                  onClick: () => {
+                    onSelect(voice.name);
+                    setIsExpanded(false);
+                  },
+                  className: "select-voice",
+                  children: voice.name === selectedVoiceName ? "Selected" : "Select"
+                }
+              )
+            ] })
+          ]
+        },
+        voice.audio_hash
+      )) })
+    ] });
+  }
+
+  // src/pages/AudiobookDetails.tsx
+  var import_jsx_runtime6 = __toESM(require_jsx_runtime());
   function AudiobookDetails() {
     const { audiobookId } = useParams();
-    const [audiobook, setAudiobook] = (0, import_react4.useState)(null);
-    const [work, setWork] = (0, import_react4.useState)(null);
-    const [referenceVoices, setReferenceVoices] = (0, import_react4.useState)([]);
-    const [loading, setLoading] = (0, import_react4.useState)(true);
-    const [error, setError] = (0, import_react4.useState)(null);
-    (0, import_react4.useEffect)(() => {
+    const [audiobook, setAudiobook] = (0, import_react5.useState)(null);
+    const [work, setWork] = (0, import_react5.useState)(null);
+    const [referenceVoices, setReferenceVoices] = (0, import_react5.useState)([]);
+    const [loading, setLoading] = (0, import_react5.useState)(true);
+    const [error, setError] = (0, import_react5.useState)(null);
+    (0, import_react5.useEffect)(() => {
       fetchData();
     }, [audiobookId]);
     const fetchData = async () => {
@@ -27185,30 +27286,30 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
         setLoading(false);
       }
     };
-    const updateDefaultSpeaker = async (speakerId) => {
+    const updateDefaultSpeaker = async (speakerName) => {
       try {
-        const response = await fetch(`/api/audiobooks/${audiobookId}`, {
-          method: "PATCH",
+        const response = await fetch(`/api/audiobooks/${audiobookId}/set_default_speaker`, {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ default_speaker_id: speakerId })
+          body: JSON.stringify({ voice_name: speakerName, model: null })
         });
         if (!response.ok)
           throw new Error("Failed to update default speaker");
-        const updatedAudiobook = await response.json();
-        setAudiobook((prev) => prev ? { ...prev, ...updatedAudiobook } : null);
+        await fetchData();
       } catch (error2) {
         console.error("Error:", error2);
         alert("Failed to update default speaker");
       }
     };
-    const updateCharacterVoice = async (characterName, speakerId) => {
+    const updateCharacterVoice = async (characterName, speakerName) => {
       try {
         const response = await fetch(`/api/audiobooks/${audiobookId}/character-voices`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             character_name: characterName,
-            speaker_id: speakerId
+            voice_name: speakerName,
+            model: null
           })
         });
         if (!response.ok)
@@ -27220,80 +27321,65 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
       }
     };
     if (loading)
-      return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { children: "Loading..." });
+      return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { children: "Loading..." });
     if (error)
-      return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "error", children: error });
+      return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "error", children: error });
     if (!audiobook || !work)
-      return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { children: "Audiobook not found" });
-    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "audiobook-details", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Link, { to: `/works/${work.id}`, className: "back-link", children: "\u2190 Back to Work" }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("h1", { children: [
+      return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { children: "Audiobook not found" });
+    return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "audiobook-details", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(Link, { to: `/works/${work.id}`, className: "back-link", children: "\u2190 Back to Work" }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("h1", { children: [
         work.title || `Glowfic #${work.id}`,
         " - Audiobook"
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("section", { className: "voice-settings", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("h2", { children: "Voice Settings" }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "default-voice", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("h3", { children: "Default Voice" }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
-            "select",
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("section", { className: "voice-settings", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("h2", { children: "Voice Settings" }),
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "default-voice", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("h3", { children: "Default Voice" }),
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+            VoiceSelector,
             {
-              value: audiobook.default_speaker_id || "",
-              onChange: (e) => updateDefaultSpeaker(Number(e.target.value)),
-              children: [
-                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("option", { value: "", children: "Select a default voice" }),
-                referenceVoices.map((voice) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("option", { value: voice.audio_hash, children: voice.name }, voice.audio_hash))
-              ]
+              voices: referenceVoices,
+              selectedVoiceName: audiobook.default_speaker?.reference_voice,
+              onSelect: (voiceName) => updateDefaultSpeaker(voiceName),
+              label: "Default Speaker"
             }
           )
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "character-voices", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("h3", { children: "Character Voices" }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("table", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("thead", { children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("tr", { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("th", { children: "Character" }),
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("th", { children: "Speaker" }),
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("th", { children: "Actions" })
-            ] }) }),
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("tbody", { children: audiobook.characters.map((character) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("tr", { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("td", { children: character.character_name }),
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("td", { children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
-                "select",
-                {
-                  value: character.speaker_id || "",
-                  onChange: (e) => updateCharacterVoice(character.character_name, Number(e.target.value)),
-                  children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("option", { value: "", children: "Select a speaker" }),
-                    referenceVoices.map((voice) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("option", { value: voice.audio_hash, children: voice.name }, voice.audio_hash))
-                  ]
-                }
-              ) }),
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("td", { children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { onClick: () => updateCharacterVoice(character.character_name, character.speaker_id), children: "Update" }) })
-            ] }, character.character_name)) })
-          ] })
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "character-voices", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("h3", { children: "Character Voices" }),
+          audiobook.characters.map((character) => /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "character-voice-item", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+            VoiceSelector,
+            {
+              voices: referenceVoices,
+              selectedVoiceName: character.reference_voice,
+              onSelect: (voiceName) => updateCharacterVoice(character.character_name, voiceName),
+              label: character.character_name
+            }
+          ) }, character.character_name))
         ] })
       ] })
     ] });
   }
 
   // src/App.tsx
-  var import_jsx_runtime6 = __toESM(require_jsx_runtime());
+  var import_jsx_runtime7 = __toESM(require_jsx_runtime());
   function App() {
-    return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(BrowserRouter, { children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "container", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(Routes, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(Route, { path: "/", element: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(Home, {}) }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(Route, { path: "/works/:workId", element: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(WorkDetails, {}) }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(Route, { path: "/audiobooks/:audiobookId", element: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(AudiobookDetails, {}) })
+    return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(BrowserRouter, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "container", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(Routes, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Route, { path: "/", element: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Home, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Route, { path: "/works/:workId", element: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(WorkDetails, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Route, { path: "/audiobooks/:audiobookId", element: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(AudiobookDetails, {}) })
     ] }) }) });
   }
 
   // src/main.tsx
-  var import_jsx_runtime7 = __toESM(require_jsx_runtime());
+  var import_jsx_runtime8 = __toESM(require_jsx_runtime());
   var container = document.getElementById("root");
   if (!container)
     throw new Error("Failed to find root element");
   var root = (0, import_client.createRoot)(container);
   root.render(
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_react5.default.StrictMode, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(App, {}) })
+    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(import_react6.default.StrictMode, { children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(App, {}) })
   );
 })();
 /*! Bundled license information:

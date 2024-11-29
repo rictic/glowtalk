@@ -154,7 +154,8 @@ def test_set_character_voice(client, sample_work, sample_speaker, db_session):
         f"/api/audiobooks/{audiobook_id}/character-voices",
         json={
             "character_name": "Test Character",
-            "speaker_id": sample_speaker.id
+            "voice_name": "test_speaker",
+            "model": None
         }
     )
     assert response.status_code == 200

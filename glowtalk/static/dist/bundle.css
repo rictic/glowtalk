@@ -1,3 +1,66 @@
+/* src/styles/VoiceSelector.css */
+.voice-selector {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin: 8px 0;
+}
+.voice-selector-header {
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  background: #f5f5f5;
+}
+.voice-selector-options {
+  padding: 12px;
+}
+.voice-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+.voice-option:last-child {
+  border-bottom: none;
+}
+.voice-option.selected {
+  background: #f0f7ff;
+}
+.voice-info h4 {
+  margin: 0 0 4px 0;
+}
+.voice-info p {
+  margin: 0;
+  color: #666;
+  font-size: 0.9em;
+}
+.voice-actions {
+  display: flex;
+  gap: 8px;
+}
+.voice-actions button {
+  padding: 6px 12px;
+  border-radius: 4px;
+}
+.select-voice {
+  background: #007bff;
+  color: white;
+  border: none;
+}
+.select-voice:hover {
+  background: #0056b3;
+}
+.voice-actions button.playing {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+}
+.voice-actions button.playing:hover {
+  background-color: #c82333;
+}
+
 /* src/styles.css */
 .container {
   max-width: 800px;

@@ -251,6 +251,10 @@ class VoicePerformance(Base):
 class SpeakerModel(enum.Enum):
     XTTS_v2 = "tts_models/multilingual/multi-dataset/xtts_v2"
 
+    @classmethod
+    def default(cls):
+        return cls.XTTS_v2
+
 _speaker_model = None
 
 class ReferenceVoice(Base):
@@ -266,6 +270,15 @@ class ReferenceVoice(Base):
 
     # Relationships
     speakers = relationship("Speaker", back_populates="reference_voice")
+
+    # We want to enforce that the name is unique
+    __table_args__ = (
+        UniqueConstraint('name', name='unique_name'),
+    )
+
+    @classmethod
+    def get_by_name(cls, session: Session, name: str):
+        return session.query(cls).filter_by(name=name).first()
 
     # This should probably be deleted, since we're moving to
     # paths built on hashes.
@@ -302,6 +315,14 @@ class Speaker(Base):
 
     # Relationships
     reference_voice = relationship("ReferenceVoice", back_populates="speakers")
+
+    @classmethod
+    def get_or_create_with_reference_voice(cls, session: Session, reference_voice: ReferenceVoice, name: str, model: SpeakerModel):
+        speaker = session.query(cls).filter_by(reference_voice=reference_voice, model=model).first()
+        if not speaker:
+            speaker = cls(reference_voice=reference_voice, model=model)
+            session.add(speaker)
+        return speaker
 
     @classmethod
     def get_or_create(cls, session: Session, name: str, model: SpeakerModel, description=None, transcript=None):
@@ -366,6 +387,16 @@ class CharacterVoice(Base):
             session.add(existing)
         else:
             assert existing.speaker == speaker
+        return existing
+
+    @classmethod
+    def get_or_update(cls, session, audiobook, character_name, speaker):
+        existing = session.query(cls).filter_by(audiobook=audiobook, character_name=character_name).first()
+        if not existing:
+            existing = cls(audiobook=audiobook, character_name=character_name, speaker=speaker)
+            session.add(existing)
+        else:
+            existing.speaker = speaker
         return existing
 
 class WorkQueue(Base):

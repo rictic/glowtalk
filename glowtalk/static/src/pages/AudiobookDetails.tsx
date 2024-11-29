@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import type { Work, AudiobookDetail, ReferenceVoice } from '../types';
+import { VoiceSelector } from '../components/VoiceSelector';
 
 export function AudiobookDetails() {
     const { audiobookId } = useParams();
@@ -21,7 +22,6 @@ export function AudiobookDetails() {
             if (!audiobookResponse.ok) throw new Error('Failed to fetch audiobook details');
             const audiobookData = await audiobookResponse.json();
             setAudiobook(audiobookData);
-
             // Fetch work details
             const workResponse = await fetch(`/api/works/${audiobookData.original_work_id}`);
             if (!workResponse.ok) throw new Error('Failed to fetch work details');
@@ -34,6 +34,7 @@ export function AudiobookDetails() {
             const referenceVoicesData = await referenceVoicesResponse.json();
             setReferenceVoices(referenceVoicesData);
 
+
         } catch (error) {
             console.error('Error:', error);
             setError('Failed to load audiobook details');
@@ -42,30 +43,30 @@ export function AudiobookDetails() {
         }
     };
 
-    const updateDefaultSpeaker = async (speakerId: number) => {
+    const updateDefaultSpeaker = async (speakerName: string) => {
         try {
-            const response = await fetch(`/api/audiobooks/${audiobookId}`, {
-                method: 'PATCH',
+            const response = await fetch(`/api/audiobooks/${audiobookId}/set_default_speaker`, {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ default_speaker_id: speakerId })
+                body: JSON.stringify({ voice_name: speakerName, model: null })
             });
             if (!response.ok) throw new Error('Failed to update default speaker');
-            const updatedAudiobook = await response.json();
-            setAudiobook(prev => prev ? { ...prev, ...updatedAudiobook } : null);
+            await fetchData();
         } catch (error) {
             console.error('Error:', error);
             alert('Failed to update default speaker');
         }
     };
 
-    const updateCharacterVoice = async (characterName: string, speakerId: number | null) => {
+    const updateCharacterVoice = async (characterName: string, speakerName: string) => {
         try {
             const response = await fetch(`/api/audiobooks/${audiobookId}/character-voices`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     character_name: characterName,
-                    speaker_id: speakerId
+                    voice_name: speakerName,
+                    model: null
                 })
             });
             if (!response.ok) throw new Error('Failed to update character voice');
@@ -93,55 +94,26 @@ export function AudiobookDetails() {
 
                 <div className="default-voice">
                     <h3>Default Voice</h3>
-                    <select
-                        value={audiobook.default_speaker_id || ''}
-                        onChange={(e) => updateDefaultSpeaker(Number(e.target.value))}
-                    >
-                        <option value="">Select a default voice</option>
-                        {referenceVoices.map(voice => (
-                            <option key={voice.audio_hash} value={voice.audio_hash}>
-                                {voice.name}
-                            </option>
-                        ))}
-                    </select>
+                    <VoiceSelector
+                        voices={referenceVoices}
+                        selectedVoiceName={audiobook.default_speaker?.reference_voice}
+                        onSelect={(voiceName) => updateDefaultSpeaker(voiceName)}
+                        label="Default Speaker"
+                    />
                 </div>
 
                 <div className="character-voices">
                     <h3>Character Voices</h3>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Character</th>
-                                <th>Speaker</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {audiobook.characters.map(character => (
-                                <tr key={character.character_name}>
-                                    <td>{character.character_name}</td>
-                                    <td>
-                                        <select
-                                            value={character.speaker_id || ''}
-                                            onChange={(e) => updateCharacterVoice(character.character_name, Number(e.target.value))}
-                                        >
-                                            <option value="">Select a speaker</option>
-                                            {referenceVoices.map(voice => (
-                                                <option key={voice.audio_hash} value={voice.audio_hash}>
-                                                    {voice.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <button onClick={() => updateCharacterVoice(character.character_name, character.speaker_id)}>
-                                            Update
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    {audiobook.characters.map(character => (
+                        <div key={character.character_name} className="character-voice-item">
+                            <VoiceSelector
+                                voices={referenceVoices}
+                                selectedVoiceName={character.reference_voice}
+                                onSelect={(voiceName) => updateCharacterVoice(character.character_name, voiceName)}
+                                label={character.character_name}
+                            />
+                        </div>
+                    ))}
                 </div>
             </section>
         </div>

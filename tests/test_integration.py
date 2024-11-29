@@ -190,7 +190,8 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
         f"/api/audiobooks/{audiobook_id}/character-voices",
         json={
             "character_name": "Alice",
-            "speaker_id": alice_speaker_id
+            "voice_name": "alice",
+            "model": None
         }
     )
     assert response.status_code == 200
@@ -199,7 +200,8 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
         f"/api/audiobooks/{audiobook_id}/character-voices",
         json={
             "character_name": "Bob",
-            "speaker_id": bob_speaker_id
+            "voice_name": "bob",
+            "model": None
         }
     )
     assert response.status_code == 200
@@ -257,8 +259,7 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     assert response.status_code == 200
     audiobook_details = response.json()
     assert audiobook_details["id"] == audiobook_id
-    assert audiobook_details["default_speaker_id"] == alice_speaker_id
-    print(audiobook_details)
+    assert audiobook_details["default_speaker"]['reference_voice'] == "alice"
     assert audiobook_details["characters"] == [
         {
             'character_name': 'Alice',
