@@ -5,3 +5,4 @@ __pycache__
 /references
 /audiobooks.db
 /bak-audiobooks.db
+/glowtalk/static/node_modules

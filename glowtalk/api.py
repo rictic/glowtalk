@@ -12,9 +12,13 @@ from pathlib import Path
 from glowtalk import glowfic_scraper
 from fastapi.responses import FileResponse
 import hashlib
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 SessionLocal = None
+
+# Add this after creating the FastAPI app
+app.mount("/static", StaticFiles(directory="glowtalk/static/dist"), name="static")
 
 # --- Dependency ---
 def get_db():
@@ -389,3 +393,7 @@ def voice_content_piece(content_piece_id: int, request: RegenerateContentPieceRe
     db.add(queue_item)
     db.commit()
     return {"work_item_id": queue_item.id}
+
+@app.get("/")
+async def read_index():
+    return FileResponse("glowtalk/static/dist/index.html")
