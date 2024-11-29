@@ -28,7 +28,7 @@ def worker_mode(url: str, verbose: bool, idle_threshold_seconds: int):
 
 def main():
     parser = argparse.ArgumentParser(description='GlowTalk CLI')
-    parser.add_argument('--host', default='127.0.0.1', help='Host to run the server on')
+    parser.add_argument('--host', default='0.0.0.0', help='Host to run the server on')
     parser.add_argument('--port', type=int, default=8585, help='Port to run the server on')
     parser.add_argument('--work_for', help='URL of GlowTalk server to work for')
     parser.add_argument('--quiet', action='store_true', help='Disable verbose output')
