@@ -19,6 +19,9 @@ def db_session():
 def mock_glowfic_html():
     """Create a mock Glowfic HTML page"""
     return """
+    <div class="content-header">
+        <span id="post-title">Title of work number 1</span>
+    </div>
     <div class="post-container">
         <div class="post-post">
             <div class="post-info-text">
@@ -60,6 +63,7 @@ def test_create_from_glowfic(db_session: Session, mock_glowfic_html: str):
 
     # Verify the work was created
     assert work.url == test_url
+    assert work.title == "Title of work number 1"
 
     # Verify parts were created
     assert len(work.parts) == 2

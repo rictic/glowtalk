@@ -159,4 +159,10 @@ def start_server(host="0.0.0.0", port=8585):
 
     # Run the FastAPI server
     print(f"Running GlowTalk at {host}:{port}")
-    uvicorn.run(app, host=host, port=port)
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        log_level="debug",  # Only show warnings and errors from uvicorn
+        access_log=False      # Disable uvicorn's access logs since we have our own
+    )

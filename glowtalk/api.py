@@ -1,6 +1,6 @@
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, File, Form, UploadFile
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, File, Form, UploadFile, Request
 from sqlalchemy.orm import Session
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Callable
 from pydantic import BaseModel, HttpUrl, ConfigDict, Field
 from datetime import datetime
 from . import models
@@ -13,11 +13,60 @@ from glowtalk import glowfic_scraper
 from fastapi.responses import FileResponse
 import hashlib
 from fastapi.staticfiles import StaticFiles
+import logging
+from contextlib import asynccontextmanager
+import time
+import traceback
 
-app = FastAPI()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Starting GlowTalk API server")
+    logger.info("Configured routes:")
+    for route in app.routes:
+        if hasattr(route, "methods"):  # API routes
+            logger.info(f"{route.methods} {route.path}")
+        else:  # Static file mounts and other special routes
+            logger.info(f"Mount: {route.path}")
+    yield
+    # Shutdown (if you need any cleanup code)
+
+app = FastAPI(lifespan=lifespan)
 SessionLocal = None
 
-# Add this after creating the FastAPI app
+@app.middleware("http")
+async def logging_middleware(request: Request, call_next: Callable):
+    # Log request
+    start_time = time.time()
+    path = request.url.path
+    method = request.method
+    logger.info(f"Request: {method} {path}")
+
+    try:
+        # Process request
+        response = await call_next(request)
+
+        # Log successful response
+        duration = time.time() - start_time
+        logger.info(
+            f"Response: {method} {path} - Status: {response.status_code} - Duration: {duration:.3f}s"
+        )
+        return response
+
+    except Exception as e:
+        # Log failed requests with full traceback
+        duration = time.time() - start_time
+        logger.error(
+            f"Error processing {method} {path} - Duration: {duration:.3f}s\n"
+            f"Error: {str(e)}\n"
+            f"Traceback: {traceback.format_exc()}"
+        )
+        raise
+
+# Then continue with your routes and other app configuration...
 app.mount("/static", StaticFiles(directory="glowtalk/static/dist"), name="static")
 
 # --- Dependency ---
@@ -40,6 +89,7 @@ class ScrapeGlowficRequest(BaseModel):
 class WorkResponse(BaseModel):
     id: int
     url: str
+    title: Optional[str]
     scrape_date: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -113,6 +163,19 @@ class WorkItemFailureRequest(BaseModel):
 def ok():
     return {"ok": True}
 
+@app.get("/api/works/recent", response_model=List[WorkResponse])
+def get_recent_works(db: Session = Depends(get_db)):
+    """Get the most recently scraped works"""
+    try:
+        return db.query(models.OriginalWork)\
+            .order_by(models.OriginalWork.scrape_date.desc())\
+            .limit(10)\
+            .all()
+    except Exception as e:
+        print(f"Error getting recent works: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @app.get("/api/works/{work_id}", response_model=WorkResponse)
 def get_work(work_id: int, db: Session = Depends(get_db)):
     """Get details about a specific work including its parts and audiobooks"""
@@ -165,6 +228,11 @@ def create_audiobook(
     db.commit()
     db.refresh(new_audiobook)
     return new_audiobook
+
+@app.get("/api/works/{work_id}/audiobooks", response_model=List[AudiobookResponse])
+def get_audiobooks_for_work(work_id: int, db: Session = Depends(get_db)):
+    """Get all audiobooks for a specific work"""
+    return db.query(models.Audiobook).filter(models.Audiobook.original_work_id == work_id).all()
 
 @app.post("/api/audiobooks/{audiobook_id}/character-voices", response_model=CharacterVoiceResponse)
 def set_character_voice(
@@ -394,6 +462,9 @@ def voice_content_piece(content_piece_id: int, request: RegenerateContentPieceRe
     db.commit()
     return {"work_item_id": queue_item.id}
 
-@app.get("/")
-async def read_index():
+@app.get("/{path:path}")
+async def catch_all(path: str):
+    """Serve index.html for all non-API routes to support client-side routing"""
+    if path.startswith("api/") or path.startswith("static/"):
+        raise HTTPException(status_code=404, detail="Not found")
     return FileResponse("glowtalk/static/dist/index.html")

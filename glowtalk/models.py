@@ -20,6 +20,7 @@ class OriginalWork(Base):
 
     id = Column(Integer, primary_key=True)
     url = Column(String, nullable=False)
+    title = Column(String, nullable=True)
     scrape_date = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

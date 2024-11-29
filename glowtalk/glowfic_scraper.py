@@ -56,7 +56,15 @@ def scrape_post(post_id: int, db: Session) -> OriginalWork:
 def create_from_glowfic(url: str, db: Session, soup: BeautifulSoup) -> OriginalWork:
     """Creates an original work from a Glowfic page"""
     original_work = OriginalWork(url=url)
+
+    title_div = soup.find('div', class_='content-header')
+    if title_div:
+        title_span = title_div.find('span', id='post-title')
+        if title_span:
+            original_work.title = title_span.text.strip()
+
     db.add(original_work)
+
 
     posts = soup.find_all('div', class_=['post-post', 'post-reply'])
     for post in posts:
