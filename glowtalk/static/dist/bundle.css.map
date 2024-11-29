@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../src/styles.css"],
+  "sourcesContent": [".container {\n    max-width: 800px;\n    margin: 0 auto;\n    padding: 20px;\n}\n\nform {\n    margin: 20px 0;\n    display: flex;\n    gap: 10px;\n}\n\ninput {\n    padding: 8px;\n    font-size: 16px;\n    border: 1px solid #ccc;\n    border-radius: 4px;\n    flex: 1;\n}\n\nbutton {\n    padding: 8px 16px;\n    font-size: 16px;\n    background-color: #0066cc;\n    color: white;\n    border: none;\n    border-radius: 4px;\n    cursor: pointer;\n}\n\nbutton:disabled {\n    background-color: #ccc;\n    cursor: not-allowed;\n}\n\n.work-info {\n    margin-top: 20px;\n    padding: 20px;\n    background-color: #f5f5f5;\n    border-radius: 4px;\n} \n"],
+  "mappings": ";AAAA,CAAC;AACG,aAAW;AACX,UAAQ,EAAE;AACV,WAAS;AACb;AAEA;AACI,UAAQ,KAAK;AACb,WAAS;AACT,OAAK;AACT;AAEA;AACI,WAAS;AACT,aAAW;AACX,UAAQ,IAAI,MAAM;AAClB,iBAAe;AACf,QAAM;AACV;AAEA;AACI,WAAS,IAAI;AACb,aAAW;AACX,oBAAkB;AAClB,SAAO;AACP,UAAQ;AACR,iBAAe;AACf,UAAQ;AACZ;AAEA,MAAM;AACF,oBAAkB;AAClB,UAAQ;AACZ;AAEA,CAAC;AACG,cAAY;AACZ,WAAS;AACT,oBAAkB;AAClB,iBAAe;AACnB;",
+  "names": []
+}

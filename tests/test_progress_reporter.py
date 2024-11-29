@@ -1,7 +1,7 @@
 from unittest.mock import Mock, patch
 import io
 import pytest
-from glowtalk.cli import ProgressReporter
+from glowtalk.server import ProgressReporter
 
 @pytest.fixture
 def mock_time():
