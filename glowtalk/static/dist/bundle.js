@@ -27259,9 +27259,17 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
     const [referenceVoices, setReferenceVoices] = (0, import_react5.useState)([]);
     const [loading, setLoading] = (0, import_react5.useState)(true);
     const [error, setError] = (0, import_react5.useState)(null);
+    const [queueStatus, setQueueStatus] = (0, import_react5.useState)(null);
     (0, import_react5.useEffect)(() => {
       fetchData();
     }, [audiobookId]);
+    (0, import_react5.useEffect)(() => {
+      if (!queueStatus || queueStatus.pending === 0 && queueStatus.in_progress === 0) {
+        return;
+      }
+      const interval = setInterval(fetchQueueStatus, 5e3);
+      return () => clearInterval(interval);
+    }, [queueStatus]);
     const fetchData = async () => {
       try {
         const audiobookResponse = await fetch(`/api/audiobooks/${audiobookId}/details`);
@@ -27284,6 +27292,28 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
         setError("Failed to load audiobook details");
       } finally {
         setLoading(false);
+      }
+    };
+    const fetchQueueStatus = async () => {
+      try {
+        const response = await fetch("/api/queue/status");
+        if (!response.ok)
+          throw new Error("Failed to fetch queue status");
+        const status = await response.json();
+        setQueueStatus(status);
+      } catch (error2) {
+        console.error("Error fetching queue status:", error2);
+      }
+    };
+    const startGeneration = async () => {
+      try {
+        await fetch(`/api/audiobooks/${audiobookId}/generate`, {
+          method: "POST"
+        });
+        await fetchQueueStatus();
+      } catch (error2) {
+        console.error("Error starting generation:", error2);
+        alert("Failed to start generation");
       }
     };
     const updateDefaultSpeaker = async (speakerName) => {
@@ -27357,6 +27387,38 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
               label: character.character_name
             }
           ) }, character.character_name))
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("section", { className: "generation-controls", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("h2", { children: "Generation" }),
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+          "button",
+          {
+            onClick: startGeneration,
+            disabled: queueStatus != null && (queueStatus.pending > 0 || queueStatus.in_progress > 0),
+            children: "Generate Audiobook"
+          }
+        ),
+        queueStatus && (queueStatus.pending > 0 || queueStatus.in_progress > 0) && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "queue-status", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("p", { children: "Generation in progress..." }),
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("ul", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("li", { children: [
+              "Pending: ",
+              queueStatus.pending
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("li", { children: [
+              "In Progress: ",
+              queueStatus.in_progress
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("li", { children: [
+              "Completed: ",
+              queueStatus.completed
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("li", { children: [
+              "Failed: ",
+              queueStatus.failed
+            ] })
+          ] })
         ] })
       ] })
     ] });

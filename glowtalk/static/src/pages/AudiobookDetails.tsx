@@ -10,10 +10,25 @@ export function AudiobookDetails() {
     const [referenceVoices, setReferenceVoices] = useState<ReferenceVoice[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [queueStatus, setQueueStatus] = useState<{
+        pending: number;
+        in_progress: number;
+        completed: number;
+        failed: number;
+    } | null>(null);
 
     useEffect(() => {
         fetchData();
     }, [audiobookId]);
+
+    useEffect(() => {
+        if (!queueStatus || (queueStatus.pending === 0 && queueStatus.in_progress === 0)) {
+            return;
+        }
+
+        const interval = setInterval(fetchQueueStatus, 5000);
+        return () => clearInterval(interval);
+    }, [queueStatus]);
 
     const fetchData = async () => {
         try {
@@ -40,6 +55,29 @@ export function AudiobookDetails() {
             setError('Failed to load audiobook details');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchQueueStatus = async () => {
+        try {
+            const response = await fetch('/api/queue/status');
+            if (!response.ok) throw new Error('Failed to fetch queue status');
+            const status = await response.json();
+            setQueueStatus(status);
+        } catch (error) {
+            console.error('Error fetching queue status:', error);
+        }
+    };
+
+    const startGeneration = async () => {
+        try {
+            await fetch(`/api/audiobooks/${audiobookId}/generate`, {
+                method: 'POST'
+            });
+            await fetchQueueStatus();
+        } catch (error) {
+            console.error('Error starting generation:', error);
+            alert('Failed to start generation');
         }
     };
 
@@ -115,6 +153,28 @@ export function AudiobookDetails() {
                         </div>
                     ))}
                 </div>
+            </section>
+
+            <section className="generation-controls">
+                <h2>Generation</h2>
+                <button
+                    onClick={startGeneration}
+                    disabled={queueStatus != null && (queueStatus.pending > 0 || queueStatus.in_progress > 0)}
+                >
+                    Generate Audiobook
+                </button>
+
+                {queueStatus && (queueStatus.pending > 0 || queueStatus.in_progress > 0) && (
+                    <div className="queue-status">
+                        <p>Generation in progress...</p>
+                        <ul>
+                            <li>Pending: {queueStatus.pending}</li>
+                            <li>In Progress: {queueStatus.in_progress}</li>
+                            <li>Completed: {queueStatus.completed}</li>
+                            <li>Failed: {queueStatus.failed}</li>
+                        </ul>
+                    </div>
+                )}
             </section>
         </div>
     );

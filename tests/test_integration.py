@@ -10,140 +10,16 @@ from glowtalk import models, worker
 from glowtalk.worker import Worker
 from glowtalk.api import app, get_db
 from glowtalk.models import Base, Speaker, SpeakerModel, WorkQueue, VoicePerformance
-from glowtalk.glowfic_scraper import create_from_glowfic
+from conftest import mock_glowfic_scraper, mock_speaker_model, test_cwd, db_session, client, mock_combine_wav_to_mp3
 
-# Mock data for our fake glowfic scraper
-MOCK_GLOWFIC_HTML = """
-<div class="post-container">
-    <div class="post-post">
-        <div class="post-info-text">
-            <div class="post-character">Alice</div>
-            <div class="post-screenname">AliceScreen</div>
-            <div class="post-author">AuthorOne</div>
-        </div>
-        <div class="post-content">
-            <p>Hello there! This is Alice speaking.</p>
-        </div>
-    </div>
-    <div class="post-reply">
-        <div class="post-info-text">
-            <div class="post-character">Bob</div>
-            <div class="post-screenname">BobScreen</div>
-            <div class="post-author">AuthorTwo</div>
-        </div>
-        <div class="post-content">
-            <p>Hi Alice! This is Bob.</p>
-        </div>
-    </div>
-</div>
-"""
-
-SECOND_MOCK_GLOWFIC_HTML = """
-<div class="post-container">
-    <div class="post-post">
-        <div class="post-info-text">
-            <div class="post-character">Joey</div>
-            <div class="post-screenname">JoeyScreen</div>
-            <div class="post-author">AuthorThree</div>
-        </div>
-        <div class="post-content">
-            <p>This is Joey speaking.</p>
-        </div>
-    </div>
-</div>
-"""
-
-@pytest.fixture
-def mock_speaker_model(monkeypatch):
-    """Mock the speaker model to avoid actual TTS generation"""
-    class MockSpeakerModel:
-        def __init__(self, model: models.SpeakerModel):
-            self.model = model
-
-        def speak(self, text, speaker_wav, output_path):
-            output_path.write_bytes( b"generated audio data for " + bytes(text, "utf8"))
-            return output_path
-
-    monkeypatch.setattr("glowtalk.speak.Speaker", MockSpeakerModel)
-
-@pytest.fixture
-def mock_glowfic_scraper(monkeypatch):
-    """Mock the glowfic scraper to return our test data"""
-    from bs4 import BeautifulSoup
-
-    def mock_scrape(post_id, db):
-        if post_id == 1234:
-            soup = BeautifulSoup(MOCK_GLOWFIC_HTML, 'html.parser')
-        else:
-            soup = BeautifulSoup(SECOND_MOCK_GLOWFIC_HTML, 'html.parser')
-        url = f"https://glowfic.com/posts/{post_id}"
-        return create_from_glowfic(url, db, soup)
-
-    monkeypatch.setattr("glowtalk.glowfic_scraper.scrape_post", mock_scrape)
-
-@pytest.fixture
-def test_cwd(tmp_path):
-    """Create and change to a temporary working directory"""
-    original_cwd = os.getcwd()
-    references_dir = tmp_path / "references"
-    references_dir.mkdir()
-    os.chdir(tmp_path)
-    yield tmp_path
-    os.chdir(original_cwd)
-
-@pytest.fixture
-def db_session(test_cwd):
-    """Create a fresh database for each test"""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    TestingSessionLocal = sessionmaker(bind=engine)
-    Base.metadata.create_all(engine)
-
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-        Base.metadata.drop_all(engine)
-
-@pytest.fixture
-def client(db_session):
-    """Create a test client with the test database"""
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    return TestClient(app)
-
-@pytest.fixture
-def mock_combine_wav_to_mp3(monkeypatch):
-    """Mock the combine_wav_to_mp3 function to verify WAV file contents"""
-    call_count = 0
-
-    def mock_combine(wav_files, output_mp3_path):
-        nonlocal call_count
-        call_count += 1
-        # Read all WAV files and concatenate their contents
-        combined_contents = b""
-        for wav_file in wav_files:
-            with open(wav_file, "rb") as f:
-                combined_contents += f.read()
-
-        # Write the combined contents to the output MP3 file
-        with open(output_mp3_path, "wb") as f:
-            f.write(combined_contents)
-
-    monkeypatch.setattr("glowtalk.convert.combine_wav_to_mp3", mock_combine)
-    return lambda: call_count
 
 def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_model,
                       mock_combine_wav_to_mp3, test_cwd):
+    # Test getting recent works (should be empty initially)
+    response = client.get("/api/works/recent")
+    assert response.status_code == 200
+    assert response.json() == []
+
     # 1. Create two speakers (Alice and Bob)
     for speaker_name in ["alice", "bob"]:
         response = client.post(
@@ -168,11 +44,13 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     )
     assert response.status_code == 200
     work_id = response.json()["id"]
-    # Read the database to verify that the work was created
-    work = db_session.get(models.OriginalWork, work_id)
-    assert work is not None
-    # It should have two Parts
-    assert len(work.parts) == 2
+
+    # Test getting recent works (should now have our work)
+    response = client.get("/api/works/recent")
+    assert response.status_code == 200
+    recent_works = response.json()
+    assert len(recent_works) == 1
+    assert recent_works[0]["id"] == work_id
 
     # 3. Create an audiobook with Alice as the default speaker
     response = client.post(
@@ -184,6 +62,31 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     )
     assert response.status_code == 200
     audiobook_id = response.json()["id"]
+
+    # Test getting audiobook details before setting character voices
+    response = client.get(f"/api/audiobooks/{audiobook_id}/details")
+    assert response.status_code == 200
+    details = response.json()
+    assert details["id"] == audiobook_id
+    assert details["default_speaker"] == {
+        "character_name": "Default speaker",
+        "reference_voice": "alice",
+        "model": "tts_models/multilingual/multi-dataset/xtts_v2"
+    }
+    # Characters should exist but have no voices assigned yet
+    assert len(details["characters"]) == 2
+    assert details["characters"] == [
+        {
+            "character_name": "Alice",
+            "reference_voice": None,
+            "model": None
+        },
+        {
+            "character_name": "Bob",
+            "reference_voice": None,
+            "model": None
+        }
+    ]
 
     # 4. Assign Bob's voice to Bob's character and Alice's to Alice's
     response = client.post(

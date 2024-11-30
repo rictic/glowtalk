@@ -1,7 +1,6 @@
 import re
 import os
 from pathlib import Path
-import torch
 from glowtalk import models
 
 
@@ -33,6 +32,7 @@ def get_unique_filename() -> Path:
 
 class Speaker:
   def __init__(self, model: models.SpeakerModel):
+    import torch
     from TTS.api import TTS
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cpu":
@@ -55,4 +55,3 @@ class Speaker:
     )
 
     return output_path
-

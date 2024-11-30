@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, File, Form, UploadFile, Request
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, File, Form, UploadFile, Request, Response
 from sqlalchemy.orm import Session
 from typing import List, Optional, Union, Callable
 from pydantic import BaseModel, HttpUrl, ConfigDict, Field
@@ -16,6 +16,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import traceback
 from fastapi.responses import JSONResponse
+from starlette.responses import StreamingResponse
+import asyncio
+from asyncio import Event
+from sse_starlette.sse import EventSourceResponse
 
 app = FastAPI()
 SessionLocal = None
@@ -560,6 +564,77 @@ def get_audiobook_details(audiobook_id: int, db: Session = Depends(get_db)):
         **audiobook_dict,
         characters=character_voices
     )
+
+
+async def generate_progress_events(audiobook_id: int, db: Session):
+    """Generate SSE events for audiobook generation progress"""
+    previous = None
+    try:
+        while True:
+            # Query work queue status for this audiobook
+            pending = db.query(models.WorkQueue)\
+                .filter_by(audiobook_id=audiobook_id, status='pending').count()
+            in_progress = db.query(models.WorkQueue)\
+                .filter_by(audiobook_id=audiobook_id, status='in_progress').count()
+            completed = db.query(models.WorkQueue)\
+                .filter_by(audiobook_id=audiobook_id, status='completed').count()
+            failed = db.query(models.WorkQueue)\
+                .filter_by(audiobook_id=audiobook_id, status='failed').count()
+
+            # Prepare event data
+            data = {
+                "audiobook_id": audiobook_id,
+                "pending": pending,
+                "in_progress": in_progress,
+                "completed": completed,
+                "failed": failed
+            }
+            if data != previous:
+                yield f"data: {json.dumps(data)}\n\n"
+                previous = data
+
+            # If no more work to do, stop streaming
+            if pending == 0 and in_progress == 0:
+                break
+
+            await asyncio.sleep(5)  # Wait before next update
+    except asyncio.CancelledError:
+        # Handle client disconnection gracefully
+        pass
+
+@app.get("/api/audiobooks/{audiobook_id}/generation_progress")
+async def get_generation_progress(
+    audiobook_id: int,
+    db: Session = Depends(get_db)
+):
+    """SSE endpoint for monitoring audiobook generation progress"""
+    # Verify audiobook exists
+    audiobook = db.query(models.Audiobook).filter_by(id=audiobook_id).first()
+    if not audiobook:
+        raise HTTPException(status_code=404, detail="Audiobook not found")
+
+    return StreamingResponse(
+        generate_progress_events(audiobook_id, db),
+        media_type="text/event-stream"
+    )
+
+ok_event = Event()
+
+@app.get("/api/stream_ok")
+async def stream_ok():
+    """Send down an 'ok' message every time we get a wake_ok_stream request"""
+    async def event_generator():
+        while True:
+            await ok_event.wait()
+            ok_event.clear()
+            yield {"data": "ok"}
+    return EventSourceResponse(event_generator())
+
+@app.post("/api/wake_ok_stream")
+async def wake_ok_stream():
+    """Wake up all waiting ok streams"""
+    ok_event.set()
+    return {"message": "Woke up streams"}
 
 @app.get("/{path:path}")
 async def catch_all(path: str):
