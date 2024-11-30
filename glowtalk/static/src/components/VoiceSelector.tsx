@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { ReferenceVoice } from '../types';
-import '../styles/VoiceSelector.css';
+import './VoiceSelector.css';
 
 interface VoiceSelectorProps {
     voices: ReferenceVoice[];

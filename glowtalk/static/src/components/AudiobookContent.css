@@ -1,0 +1,75 @@
+.audiobook-content {
+  height: 100%;
+  width: 100%;
+}
+
+.part-container {
+  display: flex;
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.part-info {
+  flex: 0 0 200px;
+  padding-right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.part-icon img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.part-character {
+  font-weight: bold;
+}
+
+.part-screenname {
+  font-style: italic;
+  color: #666;
+}
+
+.part-author {
+  color: #888;
+  font-size: 0.9em;
+}
+
+.part-content {
+  flex: 1;
+}
+
+.content-piece {
+  /* We want to respect newlines inside content pieces, but otherwise
+   * let the browser wrap lines as it sees fit. */
+  white-space: pre-line;
+}
+
+.highlight {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.playing {
+  background-color: rgba(210, 180, 140, 0.3); /* Gentle tan color */
+}
+
+.resume-button {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.resume-button:hover {
+  background-color: #0056b3;
+}

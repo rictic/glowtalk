@@ -1,4 +1,4 @@
-/* src/styles/VoiceSelector.css */
+/* src/components/VoiceSelector.css */
 .voice-selector {
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -59,6 +59,101 @@
 }
 .voice-actions button.playing:hover {
   background-color: #c82333;
+}
+
+/* src/components/AudiobookContent.css */
+.audiobook-content {
+  height: 100%;
+  width: 100%;
+}
+.part-container {
+  display: flex;
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+}
+.part-info {
+  flex: 0 0 200px;
+  padding-right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.part-icon img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.part-character {
+  font-weight: bold;
+}
+.part-screenname {
+  font-style: italic;
+  color: #666;
+}
+.part-author {
+  color: #888;
+  font-size: 0.9em;
+}
+.part-content {
+  flex: 1;
+}
+.content-piece {
+  white-space: pre-line;
+}
+.highlight {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+.cursor-pointer {
+  cursor: pointer;
+}
+.playing {
+  background-color: rgba(210, 180, 140, 0.3);
+}
+.resume-button {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.resume-button:hover {
+  background-color: #0056b3;
+}
+
+/* src/pages/AudiobookDetails.css */
+.progress-bar-container {
+  width: 100%;
+  height: 20px;
+  background-color: #eee;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+.progress-bar {
+  height: 100%;
+  background-color: #4CAF50;
+  transition: width 0.3s ease-in-out;
+}
+.progress-percentage {
+  text-align: center;
+  font-weight: bold;
+  margin: 5px 0;
+}
+.queue-status {
+  margin-top: 20px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+.content-section {
+  margin-top: 2rem;
+}
+.content-container {
+  border: 1px solid #ddd;
+  border-radius: 4px;
 }
 
 /* src/styles.css */

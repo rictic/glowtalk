@@ -34,3 +34,35 @@ export interface ReferenceVoice {
 export interface SpeakerModel {
   name: string;
 }
+
+// class ContentPieceContentResponse(BaseModel):
+//     id: int
+//     text: str
+//     voiced: bool
+//     audio_file_hash: Optional[str]
+
+// class PartContentResponse(BaseModel):
+//     id: int
+//     character_name: Optional[str]
+//     screenname: Optional[str]
+//     icon_url: Optional[HttpUrl]
+//     icon_title: Optional[str]
+//     author_name: Optional[str]
+//     content_pieces: ContentPieceContentResponse[];
+
+export interface ContentPiece {
+  id: number;
+  text: string;
+  voiced: boolean;
+  audio_file_hash: string | null;
+}
+
+export interface Part {
+  id: number;
+  character_name: string | null;
+  screenname: string | null;
+  icon_url: string | null;
+  icon_title: string | null;
+  author_name: string | null;
+  content_pieces: ContentPiece[];
+}

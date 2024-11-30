@@ -1,0 +1,36 @@
+.progress-bar-container {
+    width: 100%;
+    height: 20px;
+    background-color: #eee;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: #4CAF50;
+    transition: width 0.3s ease-in-out;
+}
+
+.progress-percentage {
+    text-align: center;
+    font-weight: bold;
+    margin: 5px 0;
+}
+
+.queue-status {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.content-section {
+  margin-top: 2rem;
+}
+
+.content-container {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}

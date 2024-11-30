@@ -115,6 +115,21 @@ class ContentPiece(Base):
             raise ValueError(f"No speaker configured for content piece {self.text} or for character {self.character or self.part.character} and no default speaker in this audiobook.")
         return speaker.generate_voice_performance(session, self, audiobook)
 
+    def get_performance_for_audiobook(self, session: Session, audiobook: 'Audiobook') -> Optional['VoicePerformance']:
+        if not self.should_voice:
+            return None
+        speaker = self.get_speaker_for_audiobook(session, audiobook)
+        if not speaker:
+            return None
+        # now get the performance for this speaker and content piece
+        # TODO: need to account for an audiobook's preferred performance
+        performance = session.query(VoicePerformance)\
+            .filter(VoicePerformance.speaker_id == speaker.id, VoicePerformance.content_piece_id == self.id)\
+            .order_by(VoicePerformance.generation_date.desc())\
+            .first()
+        return performance
+
+
 class Audiobook(Base):
     __tablename__ = 'audiobooks'
 
@@ -158,12 +173,7 @@ class Audiobook(Base):
             for content_piece in part.content_pieces:
                 if not content_piece.should_voice:
                     continue
-                speaker = content_piece.get_speaker_for_audiobook(session, self)
-                # now get the performance for this speaker and content piece
-                performance = session.query(VoicePerformance)\
-                    .filter(VoicePerformance.speaker_id == speaker.id, VoicePerformance.content_piece_id == content_piece.id)\
-                    .order_by(VoicePerformance.generation_date.desc())\
-                    .first()
+                performance = content_piece.get_performance_for_audiobook(session, self)
                 if not performance:
                     return None
                 performances.append(performance)

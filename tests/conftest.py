@@ -9,7 +9,7 @@ import os
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
-from glowtalk.api import app, get_db
+from glowtalk.api import app, get_sessionmaker
 from glowtalk.models import Base
 from fastapi.testclient import TestClient
 import signal
@@ -94,7 +94,7 @@ def test_cwd(tmp_path):
     os.chdir(original_cwd)
 
 @pytest.fixture
-def db_session(test_cwd):
+def db_sessionmaker(test_cwd):
     """Create a fresh database for each test"""
     engine = create_engine(
         "sqlite:///:memory:",
@@ -102,25 +102,34 @@ def db_session(test_cwd):
         poolclass=StaticPool,
     )
     TestingSessionLocal = sessionmaker(bind=engine)
-    Base.metadata.create_all(engine)
 
-    db = TestingSessionLocal()
+    # Create all tables before yielding the sessionmaker
+    Base.metadata.create_all(bind=engine)
+
+    def override_get_sessionmaker():
+        return TestingSessionLocal
+
+    # Override the dependency in the FastAPI app
+    app.dependency_overrides[get_sessionmaker] = override_get_sessionmaker
+
     try:
-        yield db
+        yield TestingSessionLocal
     finally:
-        db.close()
-        Base.metadata.drop_all(engine)
+        Base.metadata.drop_all(bind=engine)
+        app.dependency_overrides.clear()
 
 @pytest.fixture
-def client(db_session):
-    """Create a test client with the test database"""
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
+def db_session(db_sessionmaker):
+    """Create a test database session"""
+    session = db_sessionmaker()
+    try:
+        yield session
+    finally:
+        session.close()
 
-    app.dependency_overrides[get_db] = override_get_db
+@pytest.fixture
+def client(db_sessionmaker):
+    """Create a test client with the test database"""
     return TestClient(app)
 
 @pytest.fixture
@@ -152,14 +161,14 @@ def find_free_port():
         port = s.getsockname()[1]
     return port
 
-def run_server(host="127.0.0.1", port=None):
+def run_server(host="127.0.0.1", port=None, cwd=None):
     """Run the FastAPI app using uvicorn in a separate process"""
     if port is None:
         port = find_free_port()
     uvicorn.run(app, host=host, port=port)
 
 @pytest.fixture
-async def test_server():
+async def test_server(test_cwd):
     """Fixture that starts a test server and yields an AsyncClient"""
     port = find_free_port()
     server_process = multiprocessing.Process(target=run_server, kwargs={"port": port})

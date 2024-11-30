@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 import os
 from pathlib import Path
+import json
 
 from glowtalk import models, worker
 from glowtalk.worker import Worker
@@ -295,3 +296,60 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
         b"generated audio data for Hi Alice!",
         b"generated audio data for This is Bob."
     ]
+
+    # Test streaming content endpoint
+    response = client.get(f"/api/audiobooks/{audiobook_id}/content")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/x-ndjson"
+
+    # Split the response into lines and parse each as JSON
+    parts = [json.loads(line) for line in response.text.strip().split('\n')]
+    assert len(parts) == 2  # Two parts: Alice's and Bob's
+
+    # Verify Alice's part
+    alice_part = parts[0]
+    assert alice_part["character_name"] == "Alice"
+    assert alice_part["screenname"] == "AliceScreen"
+    assert alice_part["author_name"] == "AuthorOne"
+
+    # Verify Alice's content pieces
+    alice_pieces = alice_part["content_pieces"]
+    assert [piece["text"] for piece in alice_pieces] == [
+        "Alice (AliceScreen) (by AuthorOne):",
+        "\n\n",
+        "Hello there!",
+        "This is Alice speaking.",
+        "\n"
+    ]
+    voiced_alice_pieces = [piece for piece in alice_pieces if piece["voiced"]]
+    assert [piece["text"] for piece in voiced_alice_pieces] == [
+        "Alice (AliceScreen) (by AuthorOne):",
+        "Hello there!",
+        "This is Alice speaking.",
+    ]
+    # All voiced pieces should have audio file hashes
+    assert all(piece["audio_file_hash"] for piece in voiced_alice_pieces)
+
+    # Verify Bob's part
+    bob_part = parts[1]
+    assert bob_part["character_name"] == "Bob"
+    assert bob_part["screenname"] == "BobScreen"
+    assert bob_part["author_name"] == "AuthorTwo"
+
+    # Verify Bob's content pieces
+    bob_pieces = bob_part["content_pieces"]
+    assert [piece["text"] for piece in bob_pieces] == [
+        "Bob (BobScreen) (by AuthorTwo):",
+        "\n\n",
+        "Hi Alice!",
+        "This is Bob.",
+        "\n"
+    ]
+    voiced_bob_pieces = [piece for piece in bob_pieces if piece["voiced"]]
+    assert [piece["text"] for piece in voiced_bob_pieces] == [
+        "Bob (BobScreen) (by AuthorTwo):",
+        "Hi Alice!",
+        "This is Bob.",
+    ]
+    # All voiced pieces should have audio file hashes
+    assert all(piece["audio_file_hash"] for piece in voiced_bob_pieces)

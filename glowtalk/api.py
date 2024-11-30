@@ -20,30 +20,27 @@ from starlette.responses import StreamingResponse
 import asyncio
 from asyncio import Event
 from sse_starlette.sse import EventSourceResponse
+import logging
+from sqlalchemy.orm import sessionmaker
+
 
 app = FastAPI()
 SessionLocal = None
+logger = logging.getLogger(__name__)
 
 # Then continue with your routes and other app configuration...
-app.mount("/static", StaticFiles(directory="glowtalk/static/dist"), name="static")
+distDir = Path(__file__).parent / "static" / "dist"
+app.mount("/static", StaticFiles(directory=distDir), name="static")
 
 # --- Dependency ---
-def get_db():
+def get_sessionmaker():
     global SessionLocal
     if SessionLocal is None:
-        try:
-            SessionLocal = init_db()
-        except Exception as e:
-            print("\n=== Database Initialization Error ===")
-            print(f"Error initializing database: {e}")
-            traceback.print_exc()
-            print("=====================================\n")
-            raise HTTPException(
-                status_code=500,
-                detail="Database initialization failed"
-            ) from e
+        SessionLocal = init_db()
+    return SessionLocal
 
-    session = SessionLocal()
+def get_db(sessionmaker: sessionmaker = Depends(get_sessionmaker)):
+    session = sessionmaker()
     try:
         yield session
     finally:
@@ -153,6 +150,21 @@ class ReferenceVoiceResponse(BaseModel):
 class SetDefaultSpeakerRequest(BaseModel):
     voice_name: str
     model: Optional[str]
+
+class ContentPieceContentResponse(BaseModel):
+    id: int
+    text: str
+    voiced: bool
+    audio_file_hash: Optional[str]
+
+class PartContentResponse(BaseModel):
+    id: int
+    character_name: Optional[str]
+    screenname: Optional[str]
+    icon_url: Optional[HttpUrl]
+    icon_title: Optional[str]
+    author_name: Optional[str]
+    content_pieces: List[ContentPieceContentResponse]
 
 # --- API Routes ---
 
@@ -565,6 +577,55 @@ def get_audiobook_details(audiobook_id: int, db: Session = Depends(get_db)):
         characters=character_voices
     )
 
+@app.get("/api/audiobooks/{audiobook_id}/content")
+def get_audiobook_content(audiobook_id: int, sessionmaker: sessionmaker = Depends(get_sessionmaker)):
+    """Get the content of an audiobook"""
+    session = sessionmaker()
+    audiobook: models.Audiobook = session.get(models.Audiobook, audiobook_id)
+    if not audiobook:
+        session.close()
+        raise HTTPException(status_code=404, detail="Audiobook not found")
+
+    parts: list[models.Part] = audiobook.original_work.parts
+    def stream_parts():
+        print(f"Streaming {len(parts)} parts")
+        try:
+            for part in parts:
+                current_part: models.Part = part
+                part_content = PartContentResponse(
+                    id=current_part.id,
+                    character_name=current_part.character,
+                    screenname=current_part.screenname,
+                    icon_url=current_part.icon_url,
+                    icon_title=current_part.icon_title,
+                    author_name=current_part.author,
+                    content_pieces=[]
+                )
+                for content_piece in current_part.content_pieces:
+                    piece = content_piece
+                    performance = piece.get_performance_for_audiobook(session, audiobook)
+                    audio_file_hash = None
+                    if performance:
+                        audio_file_hash = performance.audio_file_hash
+                    part_content.content_pieces.append(ContentPieceContentResponse(
+                        id=piece.id,
+                        text=piece.text,
+                        voiced=piece.should_voice,
+                        audio_file_hash=audio_file_hash
+                    ))
+                yield f"{part_content.model_dump_json()}\n".encode('utf-8')
+        except Exception as e:
+            print(f"Streaming error: {e}")
+        finally:
+            session.close()
+    return StreamingResponse(
+        stream_parts(),
+        media_type="application/x-ndjson",
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "no-cache"
+        }
+    )
 
 async def generate_progress_events(audiobook_id: int, db: Session):
     """Generate SSE events for audiobook generation progress"""
@@ -590,7 +651,7 @@ async def generate_progress_events(audiobook_id: int, db: Session):
                 "failed": failed
             }
             if data != previous:
-                yield f"data: {json.dumps(data)}\n\n"
+                yield {"data": json.dumps(data)}
                 previous = data
 
             # If no more work to do, stop streaming
@@ -613,9 +674,8 @@ async def get_generation_progress(
     if not audiobook:
         raise HTTPException(status_code=404, detail="Audiobook not found")
 
-    return StreamingResponse(
+    return EventSourceResponse(
         generate_progress_events(audiobook_id, db),
-        media_type="text/event-stream"
     )
 
 ok_event = Event()

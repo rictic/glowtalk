@@ -1093,11 +1093,11 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useReducer(reducer, initialArg, init);
           }
-          function useRef7(initialValue) {
+          function useRef8(initialValue) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useRef(initialValue);
           }
-          function useEffect10(create, deps) {
+          function useEffect11(create, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useEffect(create, deps);
           }
@@ -1880,14 +1880,14 @@
           exports.useContext = useContext5;
           exports.useDebugValue = useDebugValue;
           exports.useDeferredValue = useDeferredValue;
-          exports.useEffect = useEffect10;
+          exports.useEffect = useEffect11;
           exports.useId = useId2;
           exports.useImperativeHandle = useImperativeHandle;
           exports.useInsertionEffect = useInsertionEffect;
           exports.useLayoutEffect = useLayoutEffect4;
           exports.useMemo = useMemo5;
           exports.useReducer = useReducer;
-          exports.useRef = useRef7;
+          exports.useRef = useRef8;
           exports.useState = useState10;
           exports.useSyncExternalStore = useSyncExternalStore;
           exports.useTransition = useTransition;
@@ -2384,9 +2384,9 @@
           if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ !== "undefined" && typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart === "function") {
             __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(new Error());
           }
-          var React20 = require_react();
+          var React21 = require_react();
           var Scheduler = require_scheduler();
-          var ReactSharedInternals = React20.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+          var ReactSharedInternals = React21.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
           var suppressWarning = false;
           function setSuppressWarning(newSuppressWarning) {
             {
@@ -2435,7 +2435,7 @@
           var HostPortal = 4;
           var HostComponent = 5;
           var HostText = 6;
-          var Fragment9 = 7;
+          var Fragment10 = 7;
           var Mode = 8;
           var ContextConsumer = 9;
           var ContextProvider = 10;
@@ -3591,7 +3591,7 @@
                 return "DehydratedFragment";
               case ForwardRef:
                 return getWrappedName$1(type, type.render, "ForwardRef");
-              case Fragment9:
+              case Fragment10:
                 return "Fragment";
               case HostComponent:
                 return type;
@@ -3991,7 +3991,7 @@
             {
               if (props.value == null) {
                 if (typeof props.children === "object" && props.children !== null) {
-                  React20.Children.forEach(props.children, function(child) {
+                  React21.Children.forEach(props.children, function(child) {
                     if (child == null) {
                       return;
                     }
@@ -11992,7 +11992,7 @@
               }
             }
             function updateFragment2(returnFiber, current2, fragment, lanes, key) {
-              if (current2 === null || current2.tag !== Fragment9) {
+              if (current2 === null || current2.tag !== Fragment10) {
                 var created = createFiberFromFragment(fragment, returnFiber.mode, lanes, key);
                 created.return = returnFiber;
                 return created;
@@ -12395,7 +12395,7 @@
                 if (child.key === key) {
                   var elementType = element.type;
                   if (elementType === REACT_FRAGMENT_TYPE) {
-                    if (child.tag === Fragment9) {
+                    if (child.tag === Fragment10) {
                       deleteRemainingChildren(returnFiber, child.sibling);
                       var existing = useFiber(child, element.props.children);
                       existing.return = returnFiber;
@@ -17872,7 +17872,7 @@
                 var _resolvedProps2 = workInProgress2.elementType === type ? _unresolvedProps2 : resolveDefaultProps(type, _unresolvedProps2);
                 return updateForwardRef(current2, workInProgress2, type, _resolvedProps2, renderLanes2);
               }
-              case Fragment9:
+              case Fragment10:
                 return updateFragment(current2, workInProgress2, renderLanes2);
               case Mode:
                 return updateMode(current2, workInProgress2, renderLanes2);
@@ -18145,7 +18145,7 @@
               case SimpleMemoComponent:
               case FunctionComponent:
               case ForwardRef:
-              case Fragment9:
+              case Fragment10:
               case Mode:
               case Profiler:
               case ContextConsumer:
@@ -22404,7 +22404,7 @@
             return fiber;
           }
           function createFiberFromFragment(elements, mode, lanes, key) {
-            var fiber = createFiber(Fragment9, elements, key, mode);
+            var fiber = createFiber(Fragment10, elements, key, mode);
             fiber.lanes = lanes;
             return fiber;
           }
@@ -23719,7 +23719,7 @@
       if (true) {
         (function() {
           "use strict";
-          var React20 = require_react();
+          var React21 = require_react();
           var REACT_ELEMENT_TYPE = Symbol.for("react.element");
           var REACT_PORTAL_TYPE = Symbol.for("react.portal");
           var REACT_FRAGMENT_TYPE = Symbol.for("react.fragment");
@@ -23745,7 +23745,7 @@
             }
             return null;
           }
-          var ReactSharedInternals = React20.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+          var ReactSharedInternals = React21.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
           function error(format) {
             {
               {
@@ -24595,11 +24595,11 @@
               return jsxWithValidation(type, props, key, false);
             }
           }
-          var jsx9 = jsxWithValidationDynamic;
-          var jsxs8 = jsxWithValidationStatic;
+          var jsx10 = jsxWithValidationDynamic;
+          var jsxs9 = jsxWithValidationStatic;
           exports.Fragment = REACT_FRAGMENT_TYPE;
-          exports.jsx = jsx9;
-          exports.jsxs = jsxs8;
+          exports.jsx = jsx10;
+          exports.jsxs = jsxs9;
         })();
       }
     }
@@ -24618,7 +24618,7 @@
   });
 
   // src/main.tsx
-  var import_react6 = __toESM(require_react());
+  var import_react7 = __toESM(require_react());
   var import_client = __toESM(require_client());
 
   // node_modules/react-router/dist/production/chunk-7R3XDUXW.mjs
@@ -27149,7 +27149,7 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
   }
 
   // src/pages/AudiobookDetails.tsx
-  var import_react5 = __toESM(require_react());
+  var import_react6 = __toESM(require_react());
 
   // src/components/VoiceSelector.tsx
   var import_react4 = __toESM(require_react());
@@ -27159,7 +27159,7 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
     const [playingVoiceId, setPlayingVoiceId] = (0, import_react4.useState)(null);
     const audioRef = (0, import_react4.useRef)(null);
     const selectedVoice = voices.find((v) => v.name === selectedVoiceName);
-    const playAudio = async (audioHash) => {
+    const playAudio2 = async (audioHash) => {
       if (playingVoiceId === audioHash) {
         audioRef.current?.pause();
         audioRef.current = null;
@@ -27204,7 +27204,7 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
             type: "button",
             onClick: (ev) => {
               ev.stopPropagation();
-              playAudio(selectedVoice.audio_hash);
+              playAudio2(selectedVoice.audio_hash);
             },
             className: playingVoiceId === selectedVoice.audio_hash ? "playing" : "",
             children: playingVoiceId === selectedVoice.audio_hash ? "Stop" : "Play Sample"
@@ -27225,7 +27225,7 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
                 "button",
                 {
                   type: "button",
-                  onClick: () => playAudio(voice.audio_hash),
+                  onClick: () => playAudio2(voice.audio_hash),
                   className: playingVoiceId === voice.audio_hash ? "playing" : "",
                   children: playingVoiceId === voice.audio_hash ? "Stop" : "Play Sample"
                 }
@@ -27250,26 +27250,275 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
     ] });
   }
 
-  // src/pages/AudiobookDetails.tsx
+  // src/components/AudiobookContent.tsx
+  var import_react5 = __toESM(require_react());
   var import_jsx_runtime6 = __toESM(require_jsx_runtime());
+  function AudiobookContent({ audiobookId }) {
+    const containerRef = (0, import_react5.useRef)(null);
+    const readerRef = (0, import_react5.useRef)(null);
+    const audioRef = (0, import_react5.useRef)(null);
+    const currentlyPlayingRef = (0, import_react5.useRef)(null);
+    const handleResume = (contentPieceId) => {
+      const element = containerRef.current?.querySelector(
+        `[piece-id="${contentPieceId}"]`
+      );
+      if (element) {
+        playAudio(element);
+        element.scrollIntoView({ behavior: "smooth" });
+      }
+    };
+    (0, import_react5.useEffect)(() => {
+      const container2 = containerRef.current;
+      if (!container2)
+        return;
+      const createPartElement = (part) => {
+        const partContainer = document.createElement("div");
+        partContainer.className = "part-container";
+        const partInfo = document.createElement("div");
+        partInfo.className = "part-info";
+        partInfo.setAttribute("part-id", String(part.id));
+        const announcementPiece = part.content_pieces[0];
+        partInfo.setAttribute("content-piece-id", String(announcementPiece.id));
+        if (announcementPiece.audio_file_hash) {
+          partInfo.setAttribute(
+            "audio-file-hash",
+            announcementPiece.audio_file_hash
+          );
+        }
+        if (part.character_name) {
+          const charDiv = document.createElement("div");
+          charDiv.className = "part-character";
+          charDiv.textContent = part.character_name;
+          partInfo.appendChild(charDiv);
+        }
+        if (part.screenname) {
+          const screenDiv = document.createElement("div");
+          screenDiv.className = "part-screenname";
+          screenDiv.textContent = part.screenname;
+          partInfo.appendChild(screenDiv);
+        }
+        if (part.author_name) {
+          const authorDiv = document.createElement("div");
+          authorDiv.className = "part-author";
+          authorDiv.textContent = part.author_name;
+          partInfo.appendChild(authorDiv);
+        }
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "part-content";
+        let first = true;
+        for (const piece of part.content_pieces) {
+          if (first) {
+            first = false;
+            continue;
+          }
+          const pieceSpan = document.createElement("span");
+          pieceSpan.className = "content-piece";
+          pieceSpan.textContent = " " + piece.text;
+          pieceSpan.setAttribute("piece-id", String(piece.id));
+          if (piece.audio_file_hash) {
+            pieceSpan.setAttribute("audio-file-hash", piece.audio_file_hash);
+          }
+          contentDiv.appendChild(pieceSpan);
+        }
+        partContainer.appendChild(partInfo);
+        partContainer.appendChild(contentDiv);
+        return partContainer;
+      };
+      const findNextAudioElement = (currentElement) => {
+        if (!currentElement) {
+          return container2.querySelector(
+            "[audio-file-hash]"
+          );
+        }
+        let first = true;
+        while (currentElement) {
+          if (!first) {
+            if (currentElement.getAttribute("audio-file-hash")) {
+              return currentElement;
+            }
+          } else {
+            first = false;
+          }
+          if (currentElement.children.length > 0) {
+            currentElement = currentElement.children[0];
+            continue;
+          }
+          while (currentElement) {
+            if (currentElement.nextElementSibling) {
+              currentElement = currentElement.nextElementSibling;
+              break;
+            }
+            currentElement = currentElement.parentElement;
+          }
+        }
+        return null;
+      };
+      const playAudio2 = (element) => {
+        const hash = element.getAttribute("audio-file-hash");
+        if (!hash)
+          return;
+        const contentPieceId = element.getAttribute("piece-id");
+        if (contentPieceId) {
+          localStorage.setItem(
+            `audiobook-${audiobookId}-position`,
+            contentPieceId
+          );
+        }
+        if (element === currentlyPlayingRef.current) {
+          audioRef.current?.pause();
+          currentlyPlayingRef.current?.classList.remove("playing");
+          currentlyPlayingRef.current = null;
+          return;
+        }
+        currentlyPlayingRef.current?.classList.remove("playing");
+        if (!audioRef.current) {
+          audioRef.current = new Audio();
+        }
+        const audio = audioRef.current;
+        audio.src = `/api/generated_wav_files/${hash}`;
+        audio.play();
+        currentlyPlayingRef.current = element;
+        element.classList.add("playing");
+        element.classList.remove("highlight");
+        audio.onended = () => {
+          element.classList.remove("playing");
+          element.classList.remove("highlight");
+          const nextElement = findNextAudioElement(element);
+          if (nextElement) {
+            playAudio2(nextElement);
+            const rect = nextElement.getBoundingClientRect();
+            const isVisible = rect.top >= 0 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight);
+            if (!isVisible) {
+              nextElement.scrollIntoView({ behavior: "smooth" });
+            }
+          } else {
+            currentlyPlayingRef.current = null;
+          }
+        };
+      };
+      const handleClick = (e) => {
+        const target = e.target;
+        const audioElement = target.closest("[audio-file-hash]");
+        if (audioElement) {
+          playAudio2(audioElement);
+        }
+      };
+      const handleMouseMove = (e) => {
+        const target = e.target;
+        const audioElement = target.closest("[audio-file-hash]");
+        container2.querySelectorAll(".highlight").forEach((el) => {
+          if (el !== currentlyPlayingRef.current) {
+            el.classList.remove("highlight");
+            el.classList.remove("cursor-pointer");
+          }
+        });
+        if (audioElement && audioElement !== currentlyPlayingRef.current) {
+          audioElement.classList.add("highlight");
+          audioElement.classList.add("cursor-pointer");
+        }
+      };
+      const fetchContent = async () => {
+        if (!container2) {
+          return;
+        }
+        while (container2.childNodes.length > 0) {
+          container2.removeChild(container2.childNodes[0]);
+        }
+        const ourContainer = document.createElement("div");
+        container2.appendChild(ourContainer);
+        try {
+          const response = await fetch(`/api/audiobooks/${audiobookId}/content`);
+          if (!response.body)
+            throw new Error("No response body");
+          const reader = response.body.getReader();
+          readerRef.current = reader;
+          const decoder = new TextDecoder();
+          let buffer = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done)
+              break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            for (const line of lines) {
+              if (line.trim()) {
+                const part = JSON.parse(line);
+                const element = createPartElement(part);
+                ourContainer.appendChild(element);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching content:", error);
+        }
+      };
+      fetchContent();
+      container2.addEventListener("mousemove", handleMouseMove);
+      container2.addEventListener("click", handleClick);
+      return () => {
+        readerRef.current?.cancel();
+        container2.removeEventListener("mousemove", handleMouseMove);
+        container2.removeEventListener("click", handleClick);
+        audioRef.current?.pause();
+      };
+    }, [audiobookId]);
+    return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
+      (() => {
+        const savedPosition = localStorage.getItem(
+          `audiobook-${audiobookId}-position`
+        );
+        if (savedPosition) {
+          return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+            "button",
+            {
+              className: "resume-button",
+              onClick: () => handleResume(savedPosition),
+              children: "Resume from last position"
+            }
+          );
+        }
+        return null;
+      })(),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { ref: containerRef, className: "audiobook-content" })
+    ] });
+  }
+
+  // src/pages/AudiobookDetails.tsx
+  var import_jsx_runtime7 = __toESM(require_jsx_runtime());
   function AudiobookDetails() {
     const { audiobookId } = useParams();
-    const [audiobook, setAudiobook] = (0, import_react5.useState)(null);
-    const [work, setWork] = (0, import_react5.useState)(null);
-    const [referenceVoices, setReferenceVoices] = (0, import_react5.useState)([]);
-    const [loading, setLoading] = (0, import_react5.useState)(true);
-    const [error, setError] = (0, import_react5.useState)(null);
-    const [queueStatus, setQueueStatus] = (0, import_react5.useState)(null);
-    (0, import_react5.useEffect)(() => {
+    const [audiobook, setAudiobook] = (0, import_react6.useState)(null);
+    const [work, setWork] = (0, import_react6.useState)(null);
+    const [referenceVoices, setReferenceVoices] = (0, import_react6.useState)([]);
+    const [loading, setLoading] = (0, import_react6.useState)(true);
+    const [error, setError] = (0, import_react6.useState)(null);
+    const [isGenerating, setIsGenerating] = (0, import_react6.useState)(true);
+    const [queueStatus, setQueueStatus] = (0, import_react6.useState)(null);
+    const readFromSSE = () => {
+      if (!isGenerating)
+        return () => {
+        };
+      const eventSource = new EventSource(`/api/audiobooks/${audiobookId}/generation_progress`);
+      eventSource.onmessage = (event) => {
+        const data2 = JSON.parse(event.data);
+        if (data2.pending === 0 && data2.in_progress === 0) {
+          setIsGenerating(false);
+          eventSource.close();
+        }
+        setQueueStatus({
+          pending: data2.pending,
+          in_progress: data2.in_progress,
+          completed: data2.completed,
+          failed: data2.failed
+        });
+      };
+      return () => eventSource.close();
+    };
+    (0, import_react6.useEffect)(() => {
       fetchData();
+      return readFromSSE();
     }, [audiobookId]);
-    (0, import_react5.useEffect)(() => {
-      if (!queueStatus || queueStatus.pending === 0 && queueStatus.in_progress === 0) {
-        return;
-      }
-      const interval = setInterval(fetchQueueStatus, 5e3);
-      return () => clearInterval(interval);
-    }, [queueStatus]);
     const fetchData = async () => {
       try {
         const audiobookResponse = await fetch(`/api/audiobooks/${audiobookId}/details`);
@@ -27294,23 +27543,13 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
         setLoading(false);
       }
     };
-    const fetchQueueStatus = async () => {
-      try {
-        const response = await fetch("/api/queue/status");
-        if (!response.ok)
-          throw new Error("Failed to fetch queue status");
-        const status = await response.json();
-        setQueueStatus(status);
-      } catch (error2) {
-        console.error("Error fetching queue status:", error2);
-      }
-    };
     const startGeneration = async () => {
       try {
         await fetch(`/api/audiobooks/${audiobookId}/generate`, {
           method: "POST"
         });
-        await fetchQueueStatus();
+        setIsGenerating(true);
+        return readFromSSE();
       } catch (error2) {
         console.error("Error starting generation:", error2);
         alert("Failed to start generation");
@@ -27351,22 +27590,22 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
       }
     };
     if (loading)
-      return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { children: "Loading..." });
+      return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { children: "Loading..." });
     if (error)
-      return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "error", children: error });
+      return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "error", children: error });
     if (!audiobook || !work)
-      return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { children: "Audiobook not found" });
-    return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "audiobook-details", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(Link, { to: `/works/${work.id}`, className: "back-link", children: "\u2190 Back to Work" }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("h1", { children: [
+      return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { children: "Audiobook not found" });
+    return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "audiobook-details", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Link, { to: `/works/${work.id}`, className: "back-link", children: "\u2190 Back to Work" }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("h1", { children: [
         work.title || `Glowfic #${work.id}`,
         " - Audiobook"
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("section", { className: "voice-settings", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("h2", { children: "Voice Settings" }),
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "default-voice", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("h3", { children: "Default Voice" }),
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("section", { className: "voice-settings", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("h2", { children: "Voice Settings" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "default-voice", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("h3", { children: "Default Voice" }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
             VoiceSelector,
             {
               voices: referenceVoices,
@@ -27376,9 +27615,9 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
             }
           )
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "character-voices", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("h3", { children: "Character Voices" }),
-          audiobook.characters.map((character) => /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "character-voice-item", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "character-voices", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("h3", { children: "Character Voices" }),
+          audiobook.characters.map((character) => /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "character-voice-item", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
             VoiceSelector,
             {
               voices: referenceVoices,
@@ -27389,9 +27628,9 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
           ) }, character.character_name))
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("section", { className: "generation-controls", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("h2", { children: "Generation" }),
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("section", { className: "generation-controls", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("h2", { children: "Generation" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
           "button",
           {
             onClick: startGeneration,
@@ -27399,49 +27638,66 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
             children: "Generate Audiobook"
           }
         ),
-        queueStatus && (queueStatus.pending > 0 || queueStatus.in_progress > 0) && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "queue-status", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("p", { children: "Generation in progress..." }),
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("ul", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("li", { children: [
+        queueStatus && (queueStatus.pending > 0 || queueStatus.in_progress > 0) && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "queue-status", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { children: "Generation in progress..." }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "progress-bar-container", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+            "div",
+            {
+              className: "progress-bar",
+              style: {
+                width: `${(queueStatus.completed / (queueStatus.pending + queueStatus.in_progress + queueStatus.completed + queueStatus.failed) * 100).toFixed(1)}%`
+              }
+            }
+          ) }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("p", { className: "progress-percentage", children: [
+            (queueStatus.completed / (queueStatus.pending + queueStatus.in_progress + queueStatus.completed + queueStatus.failed) * 100).toFixed(1),
+            "%"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("ul", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("li", { children: [
               "Pending: ",
               queueStatus.pending
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("li", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("li", { children: [
               "In Progress: ",
               queueStatus.in_progress
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("li", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("li", { children: [
               "Completed: ",
               queueStatus.completed
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("li", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("li", { children: [
               "Failed: ",
               queueStatus.failed
             ] })
           ] })
         ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("section", { className: "content-section", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("h2", { children: "Content" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "content-container", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(AudiobookContent, { audiobookId }) })
       ] })
     ] });
   }
 
   // src/App.tsx
-  var import_jsx_runtime7 = __toESM(require_jsx_runtime());
+  var import_jsx_runtime8 = __toESM(require_jsx_runtime());
   function App() {
-    return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(BrowserRouter, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "container", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(Routes, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Route, { path: "/", element: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Home, {}) }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Route, { path: "/works/:workId", element: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(WorkDetails, {}) }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Route, { path: "/audiobooks/:audiobookId", element: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(AudiobookDetails, {}) })
+    return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(BrowserRouter, { children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "container", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(Routes, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Route, { path: "/", element: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Home, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Route, { path: "/works/:workId", element: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(WorkDetails, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Route, { path: "/audiobooks/:audiobookId", element: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(AudiobookDetails, {}) })
     ] }) }) });
   }
 
   // src/main.tsx
-  var import_jsx_runtime8 = __toESM(require_jsx_runtime());
+  var import_jsx_runtime9 = __toESM(require_jsx_runtime());
   var container = document.getElementById("root");
   if (!container)
     throw new Error("Failed to find root element");
   var root = (0, import_client.createRoot)(container);
   root.render(
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(import_react6.default.StrictMode, { children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(App, {}) })
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(import_react7.default.StrictMode, { children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(App, {}) })
   );
 })();
 /*! Bundled license information:

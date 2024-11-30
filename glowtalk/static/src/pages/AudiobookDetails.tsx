@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import type { Work, AudiobookDetail, ReferenceVoice } from '../types';
 import { VoiceSelector } from '../components/VoiceSelector';
+import { AudiobookContent } from '../components/AudiobookContent';
+import './AudiobookDetails.css';
 
 export function AudiobookDetails() {
     const { audiobookId } = useParams();
@@ -10,6 +12,7 @@ export function AudiobookDetails() {
     const [referenceVoices, setReferenceVoices] = useState<ReferenceVoice[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isGenerating, setIsGenerating] = useState(true);
     const [queueStatus, setQueueStatus] = useState<{
         pending: number;
         in_progress: number;
@@ -17,18 +20,30 @@ export function AudiobookDetails() {
         failed: number;
     } | null>(null);
 
+    const readFromSSE = () => {
+        if (!isGenerating) return () => {};
+        const eventSource = new EventSource(`/api/audiobooks/${audiobookId}/generation_progress`);
+
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.pending === 0 && data.in_progress === 0) {
+                setIsGenerating(false);
+                eventSource.close();
+            }
+            setQueueStatus({
+                pending: data.pending,
+                in_progress: data.in_progress,
+                completed: data.completed,
+                failed: data.failed
+            });
+        };
+
+        return () => eventSource.close();
+    }
     useEffect(() => {
         fetchData();
+        return readFromSSE();
     }, [audiobookId]);
-
-    useEffect(() => {
-        if (!queueStatus || (queueStatus.pending === 0 && queueStatus.in_progress === 0)) {
-            return;
-        }
-
-        const interval = setInterval(fetchQueueStatus, 5000);
-        return () => clearInterval(interval);
-    }, [queueStatus]);
 
     const fetchData = async () => {
         try {
@@ -58,23 +73,13 @@ export function AudiobookDetails() {
         }
     };
 
-    const fetchQueueStatus = async () => {
-        try {
-            const response = await fetch('/api/queue/status');
-            if (!response.ok) throw new Error('Failed to fetch queue status');
-            const status = await response.json();
-            setQueueStatus(status);
-        } catch (error) {
-            console.error('Error fetching queue status:', error);
-        }
-    };
-
     const startGeneration = async () => {
         try {
             await fetch(`/api/audiobooks/${audiobookId}/generate`, {
                 method: 'POST'
             });
-            await fetchQueueStatus();
+            setIsGenerating(true);
+            return readFromSSE();
         } catch (error) {
             console.error('Error starting generation:', error);
             alert('Failed to start generation');
@@ -167,6 +172,17 @@ export function AudiobookDetails() {
                 {queueStatus && (queueStatus.pending > 0 || queueStatus.in_progress > 0) && (
                     <div className="queue-status">
                         <p>Generation in progress...</p>
+                        <div className="progress-bar-container">
+                            <div
+                                className="progress-bar"
+                                style={{
+                                    width: `${(queueStatus.completed / (queueStatus.pending + queueStatus.in_progress + queueStatus.completed + queueStatus.failed) * 100).toFixed(1)}%`
+                                }}
+                            />
+                        </div>
+                        <p className="progress-percentage">
+                            {(queueStatus.completed / (queueStatus.pending + queueStatus.in_progress + queueStatus.completed + queueStatus.failed) * 100).toFixed(1)}%
+                        </p>
                         <ul>
                             <li>Pending: {queueStatus.pending}</li>
                             <li>In Progress: {queueStatus.in_progress}</li>
@@ -175,6 +191,13 @@ export function AudiobookDetails() {
                         </ul>
                     </div>
                 )}
+            </section>
+
+            <section className="content-section">
+                <h2>Content</h2>
+                <div className="content-container">
+                    <AudiobookContent audiobookId={audiobookId!} />
+                </div>
             </section>
         </div>
     );
