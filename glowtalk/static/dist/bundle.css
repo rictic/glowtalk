@@ -103,12 +103,11 @@
 }
 .highlight {
   background-color: rgba(0, 0, 0, 0.1);
-}
-.cursor-pointer {
   cursor: pointer;
 }
 .playing {
   background-color: rgba(210, 180, 140, 0.3);
+  cursor: pointer;
 }
 .resume-button {
   margin: 1rem 0;

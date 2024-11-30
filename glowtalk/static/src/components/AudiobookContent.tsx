@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Part } from "../types";
 import "./AudiobookContent.css";
 
@@ -7,20 +7,113 @@ export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
   const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentlyPlayingRef = useRef<Element | null>(null);
+  const [pendingResume, setPendingResume] = useState<string | null>(null);
+  const pendingResumeRef = useRef<string | null>(null);
 
-  const handleResume = (contentPieceId: string) => {
+  const findNextAudioElement = (currentElement: Element | null) => {
+    const container = containerRef.current;
+    if (!container) return null;
+
+    if (!currentElement) {
+      return container.querySelector("[audio-file-hash]") as HTMLElement | null;
+    }
+    let first = true;
+    while (currentElement) {
+      if (!first) {
+        if (currentElement.getAttribute("audio-file-hash")) {
+          return currentElement;
+        }
+      } else {
+        first = false;
+      }
+      if (currentElement.children.length > 0) {
+        currentElement = currentElement.children[0];
+        continue;
+      }
+
+      while (currentElement) {
+        if (currentElement.nextElementSibling) {
+          currentElement = currentElement.nextElementSibling as HTMLElement;
+          break;
+        }
+        currentElement = currentElement.parentElement as HTMLElement | null;
+      }
+    }
+    return null;
+  };
+
+  const playAudio = (element: Element) => {
+    const hash = element.getAttribute("audio-file-hash");
+    if (!hash) return;
+
+    const contentPieceId = element.getAttribute("piece-id");
+    if (contentPieceId) {
+      localStorage.setItem(`audiobook-${audiobookId}-position`, contentPieceId);
+    }
+
+    if (element === currentlyPlayingRef.current) {
+      audioRef.current?.pause();
+      currentlyPlayingRef.current?.classList.remove("playing");
+      currentlyPlayingRef.current = null;
+      return;
+    }
+
+    currentlyPlayingRef.current?.classList.remove("playing");
+
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+    }
+    const audio = audioRef.current;
+
+    audio.src = `/api/generated_wav_files/${hash}`;
+    audio.play();
+
+    currentlyPlayingRef.current = element;
+    element.classList.add("playing");
+    element.classList.remove("highlight");
+
+    audio.onended = () => {
+      element.classList.remove("playing");
+      element.classList.remove("highlight");
+      const nextElement = findNextAudioElement(element);
+      if (nextElement) {
+        playAudio(nextElement);
+        const rect = nextElement.getBoundingClientRect();
+        const isVisible =
+          rect.top >= 0 &&
+          rect.bottom <=
+            (window.innerHeight || document.documentElement.clientHeight);
+        if (!isVisible) {
+          nextElement.scrollIntoView({ behavior: "smooth" });
+        }
+      } else {
+        currentlyPlayingRef.current = null;
+      }
+    };
+  };
+
+  const handleResume = () => {
+    const savedPosition = getSavedPosition();
+    if (!savedPosition) return;
+
     const element = containerRef.current?.querySelector(
-      `[piece-id="${contentPieceId}"]`
+      `[piece-id="${savedPosition}"]`
     ) as HTMLElement;
+
     if (element) {
       playAudio(element);
       element.scrollIntoView({ behavior: "smooth" });
+    } else {
+      setPendingResume(savedPosition);
+      pendingResumeRef.current = savedPosition;
     }
   };
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    const abortController = new AbortController();
 
     const createPartElement = (part: Part) => {
       const partContainer = document.createElement("div");
@@ -83,96 +176,6 @@ export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
       return partContainer;
     };
 
-    const findNextAudioElement = (currentElement: Element | null) => {
-      if (!currentElement) {
-        return container.querySelector(
-          "[audio-file-hash]"
-        ) as HTMLElement | null;
-      }
-      let first = true;
-      while (currentElement) {
-        if (!first) {
-          if (currentElement.getAttribute("audio-file-hash")) {
-            return currentElement;
-          }
-        } else {
-          first = false;
-        }
-        if (currentElement.children.length > 0) {
-          currentElement = currentElement.children[0];
-          continue;
-        }
-
-        while (currentElement) {
-          if (currentElement.nextElementSibling) {
-            currentElement = currentElement.nextElementSibling as HTMLElement;
-            break;
-          }
-          currentElement = currentElement.parentElement as HTMLElement | null;
-        }
-      }
-      return null;
-    };
-
-    const playAudio = (element: Element) => {
-      const hash = element.getAttribute("audio-file-hash");
-      if (!hash) return;
-
-      const contentPieceId = element.getAttribute("piece-id");
-      if (contentPieceId) {
-        localStorage.setItem(
-          `audiobook-${audiobookId}-position`,
-          contentPieceId
-        );
-      }
-
-      // If clicking the currently playing element, stop playback
-      if (element === currentlyPlayingRef.current) {
-        audioRef.current?.pause();
-        currentlyPlayingRef.current?.classList.remove("playing");
-        currentlyPlayingRef.current = null;
-        return;
-      }
-
-      // Remove playing class from previous element
-      currentlyPlayingRef.current?.classList.remove("playing");
-
-      // Create or reset audio element
-      if (!audioRef.current) {
-        audioRef.current = new Audio();
-      }
-      const audio = audioRef.current;
-
-      audio.src = `/api/generated_wav_files/${hash}`;
-      audio.play();
-
-      // Update currently playing element
-      currentlyPlayingRef.current = element;
-      element.classList.add("playing");
-      element.classList.remove("highlight");
-
-      // Set up event listener for when audio finishes
-      audio.onended = () => {
-        element.classList.remove("playing");
-        element.classList.remove("highlight");
-        const nextElement = findNextAudioElement(element);
-        if (nextElement) {
-          playAudio(nextElement);
-          // Only scroll if the element is not fully visible in the viewport
-          const rect = nextElement.getBoundingClientRect();
-          const isVisible =
-            rect.top >= 0 &&
-            rect.bottom <=
-              (window.innerHeight || document.documentElement.clientHeight);
-          if (!isVisible) {
-            nextElement.scrollIntoView({ behavior: "smooth" });
-          }
-        } else {
-          currentlyPlayingRef.current = null;
-        }
-      };
-    };
-
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       const audioElement = target.closest("[audio-file-hash]") as HTMLElement;
@@ -185,17 +188,14 @@ export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
       const target = e.target as HTMLElement;
       const audioElement = target.closest("[audio-file-hash]");
 
-      // Remove highlight from all elements except currently playing
       container.querySelectorAll(".highlight").forEach((el) => {
         if (el !== currentlyPlayingRef.current) {
           el.classList.remove("highlight");
-          el.classList.remove("cursor-pointer");
         }
       });
 
       if (audioElement && audioElement !== currentlyPlayingRef.current) {
         audioElement.classList.add("highlight");
-        audioElement.classList.add("cursor-pointer");
       }
     };
 
@@ -209,9 +209,9 @@ export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
       const ourContainer = document.createElement("div");
       container.appendChild(ourContainer);
       try {
-        // This may stream megabytes of data, so we are careful to handle
-        // it in chunks, and avoid doing any work over every part.
-        const response = await fetch(`/api/audiobooks/${audiobookId}/content`);
+        const response = await fetch(`/api/audiobooks/${audiobookId}/content`, {
+          signal: abortController.signal,
+        });
         if (!response.body) throw new Error("No response body");
 
         const reader = response.body.getReader();
@@ -233,11 +233,27 @@ export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
               const part = JSON.parse(line);
               const element = createPartElement(part);
               ourContainer.appendChild(element);
+
+              if (pendingResumeRef.current) {
+                const pendingElement = element.querySelector(
+                  `[piece-id="${pendingResumeRef.current}"]`
+                ) as HTMLElement;
+                if (pendingElement) {
+                  playAudio(pendingElement);
+                  pendingElement.scrollIntoView({ behavior: "smooth" });
+                  setPendingResume(null);
+                  pendingResumeRef.current = null;
+                }
+              }
             }
           }
         }
       } catch (error) {
-        console.error("Error fetching content:", error);
+        if (error instanceof DOMException && error.name === "AbortError") {
+          // expected
+        } else {
+          console.error("Error fetching content:", error);
+        }
       }
     };
 
@@ -247,6 +263,7 @@ export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
     container.addEventListener("click", handleClick);
 
     return () => {
+      abortController.abort();
       readerRef.current?.cancel();
       container.removeEventListener("mousemove", handleMouseMove);
       container.removeEventListener("click", handleClick);
@@ -254,19 +271,24 @@ export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
     };
   }, [audiobookId]);
 
+  const getSavedPosition = () => {
+    return localStorage.getItem(`audiobook-${audiobookId}-position`);
+  };
+
   return (
     <>
       {(() => {
-        const savedPosition = localStorage.getItem(
-          `audiobook-${audiobookId}-position`
-        );
+        const savedPosition = getSavedPosition();
         if (savedPosition) {
           return (
             <button
               className="resume-button"
-              onClick={() => handleResume(savedPosition)}
+              onClick={() => handleResume()}
+              disabled={pendingResume != null}
             >
-              Resume from last position
+              {pendingResume
+                ? "Loading previous position..."
+                : "Resume Playing ▶️"}
             </button>
           );
         }

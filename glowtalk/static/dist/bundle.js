@@ -1085,7 +1085,7 @@
             }
             return dispatcher.useContext(Context);
           }
-          function useState10(initialState) {
+          function useState11(initialState) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useState(initialState);
           }
@@ -1888,7 +1888,7 @@
           exports.useMemo = useMemo5;
           exports.useReducer = useReducer;
           exports.useRef = useRef8;
-          exports.useState = useState10;
+          exports.useState = useState11;
           exports.useSyncExternalStore = useSyncExternalStore;
           exports.useTransition = useTransition;
           exports.version = ReactVersion;
@@ -27159,7 +27159,7 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
     const [playingVoiceId, setPlayingVoiceId] = (0, import_react4.useState)(null);
     const audioRef = (0, import_react4.useRef)(null);
     const selectedVoice = voices.find((v) => v.name === selectedVoiceName);
-    const playAudio2 = async (audioHash) => {
+    const playAudio = async (audioHash) => {
       if (playingVoiceId === audioHash) {
         audioRef.current?.pause();
         audioRef.current = null;
@@ -27204,7 +27204,7 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
             type: "button",
             onClick: (ev) => {
               ev.stopPropagation();
-              playAudio2(selectedVoice.audio_hash);
+              playAudio(selectedVoice.audio_hash);
             },
             className: playingVoiceId === selectedVoice.audio_hash ? "playing" : "",
             children: playingVoiceId === selectedVoice.audio_hash ? "Stop" : "Play Sample"
@@ -27225,7 +27225,7 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
                 "button",
                 {
                   type: "button",
-                  onClick: () => playAudio2(voice.audio_hash),
+                  onClick: () => playAudio(voice.audio_hash),
                   className: playingVoiceId === voice.audio_hash ? "playing" : "",
                   children: playingVoiceId === voice.audio_hash ? "Stop" : "Play Sample"
                 }
@@ -27258,19 +27258,98 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
     const readerRef = (0, import_react5.useRef)(null);
     const audioRef = (0, import_react5.useRef)(null);
     const currentlyPlayingRef = (0, import_react5.useRef)(null);
-    const handleResume = (contentPieceId) => {
+    const [pendingResume, setPendingResume] = (0, import_react5.useState)(null);
+    const pendingResumeRef = (0, import_react5.useRef)(null);
+    const findNextAudioElement = (currentElement) => {
+      const container2 = containerRef.current;
+      if (!container2)
+        return null;
+      if (!currentElement) {
+        return container2.querySelector("[audio-file-hash]");
+      }
+      let first = true;
+      while (currentElement) {
+        if (!first) {
+          if (currentElement.getAttribute("audio-file-hash")) {
+            return currentElement;
+          }
+        } else {
+          first = false;
+        }
+        if (currentElement.children.length > 0) {
+          currentElement = currentElement.children[0];
+          continue;
+        }
+        while (currentElement) {
+          if (currentElement.nextElementSibling) {
+            currentElement = currentElement.nextElementSibling;
+            break;
+          }
+          currentElement = currentElement.parentElement;
+        }
+      }
+      return null;
+    };
+    const playAudio = (element) => {
+      const hash = element.getAttribute("audio-file-hash");
+      if (!hash)
+        return;
+      const contentPieceId = element.getAttribute("piece-id");
+      if (contentPieceId) {
+        localStorage.setItem(`audiobook-${audiobookId}-position`, contentPieceId);
+      }
+      if (element === currentlyPlayingRef.current) {
+        audioRef.current?.pause();
+        currentlyPlayingRef.current?.classList.remove("playing");
+        currentlyPlayingRef.current = null;
+        return;
+      }
+      currentlyPlayingRef.current?.classList.remove("playing");
+      if (!audioRef.current) {
+        audioRef.current = new Audio();
+      }
+      const audio = audioRef.current;
+      audio.src = `/api/generated_wav_files/${hash}`;
+      audio.play();
+      currentlyPlayingRef.current = element;
+      element.classList.add("playing");
+      element.classList.remove("highlight");
+      audio.onended = () => {
+        element.classList.remove("playing");
+        element.classList.remove("highlight");
+        const nextElement = findNextAudioElement(element);
+        if (nextElement) {
+          playAudio(nextElement);
+          const rect = nextElement.getBoundingClientRect();
+          const isVisible = rect.top >= 0 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight);
+          if (!isVisible) {
+            nextElement.scrollIntoView({ behavior: "smooth" });
+          }
+        } else {
+          currentlyPlayingRef.current = null;
+        }
+      };
+    };
+    const handleResume = () => {
+      const savedPosition = getSavedPosition();
+      if (!savedPosition)
+        return;
       const element = containerRef.current?.querySelector(
-        `[piece-id="${contentPieceId}"]`
+        `[piece-id="${savedPosition}"]`
       );
       if (element) {
         playAudio(element);
         element.scrollIntoView({ behavior: "smooth" });
+      } else {
+        setPendingResume(savedPosition);
+        pendingResumeRef.current = savedPosition;
       }
     };
     (0, import_react5.useEffect)(() => {
       const container2 = containerRef.current;
       if (!container2)
         return;
+      const abortController = new AbortController();
       const createPartElement = (part) => {
         const partContainer = document.createElement("div");
         partContainer.className = "part-container";
@@ -27324,83 +27403,11 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
         partContainer.appendChild(contentDiv);
         return partContainer;
       };
-      const findNextAudioElement = (currentElement) => {
-        if (!currentElement) {
-          return container2.querySelector(
-            "[audio-file-hash]"
-          );
-        }
-        let first = true;
-        while (currentElement) {
-          if (!first) {
-            if (currentElement.getAttribute("audio-file-hash")) {
-              return currentElement;
-            }
-          } else {
-            first = false;
-          }
-          if (currentElement.children.length > 0) {
-            currentElement = currentElement.children[0];
-            continue;
-          }
-          while (currentElement) {
-            if (currentElement.nextElementSibling) {
-              currentElement = currentElement.nextElementSibling;
-              break;
-            }
-            currentElement = currentElement.parentElement;
-          }
-        }
-        return null;
-      };
-      const playAudio2 = (element) => {
-        const hash = element.getAttribute("audio-file-hash");
-        if (!hash)
-          return;
-        const contentPieceId = element.getAttribute("piece-id");
-        if (contentPieceId) {
-          localStorage.setItem(
-            `audiobook-${audiobookId}-position`,
-            contentPieceId
-          );
-        }
-        if (element === currentlyPlayingRef.current) {
-          audioRef.current?.pause();
-          currentlyPlayingRef.current?.classList.remove("playing");
-          currentlyPlayingRef.current = null;
-          return;
-        }
-        currentlyPlayingRef.current?.classList.remove("playing");
-        if (!audioRef.current) {
-          audioRef.current = new Audio();
-        }
-        const audio = audioRef.current;
-        audio.src = `/api/generated_wav_files/${hash}`;
-        audio.play();
-        currentlyPlayingRef.current = element;
-        element.classList.add("playing");
-        element.classList.remove("highlight");
-        audio.onended = () => {
-          element.classList.remove("playing");
-          element.classList.remove("highlight");
-          const nextElement = findNextAudioElement(element);
-          if (nextElement) {
-            playAudio2(nextElement);
-            const rect = nextElement.getBoundingClientRect();
-            const isVisible = rect.top >= 0 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight);
-            if (!isVisible) {
-              nextElement.scrollIntoView({ behavior: "smooth" });
-            }
-          } else {
-            currentlyPlayingRef.current = null;
-          }
-        };
-      };
       const handleClick = (e) => {
         const target = e.target;
         const audioElement = target.closest("[audio-file-hash]");
         if (audioElement) {
-          playAudio2(audioElement);
+          playAudio(audioElement);
         }
       };
       const handleMouseMove = (e) => {
@@ -27409,12 +27416,10 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
         container2.querySelectorAll(".highlight").forEach((el) => {
           if (el !== currentlyPlayingRef.current) {
             el.classList.remove("highlight");
-            el.classList.remove("cursor-pointer");
           }
         });
         if (audioElement && audioElement !== currentlyPlayingRef.current) {
           audioElement.classList.add("highlight");
-          audioElement.classList.add("cursor-pointer");
         }
       };
       const fetchContent = async () => {
@@ -27427,7 +27432,9 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
         const ourContainer = document.createElement("div");
         container2.appendChild(ourContainer);
         try {
-          const response = await fetch(`/api/audiobooks/${audiobookId}/content`);
+          const response = await fetch(`/api/audiobooks/${audiobookId}/content`, {
+            signal: abortController.signal
+          });
           if (!response.body)
             throw new Error("No response body");
           const reader = response.body.getReader();
@@ -27446,35 +27453,52 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
                 const part = JSON.parse(line);
                 const element = createPartElement(part);
                 ourContainer.appendChild(element);
+                if (pendingResumeRef.current) {
+                  const pendingElement = element.querySelector(
+                    `[piece-id="${pendingResumeRef.current}"]`
+                  );
+                  if (pendingElement) {
+                    playAudio(pendingElement);
+                    pendingElement.scrollIntoView({ behavior: "smooth" });
+                    setPendingResume(null);
+                    pendingResumeRef.current = null;
+                  }
+                }
               }
             }
           }
         } catch (error) {
-          console.error("Error fetching content:", error);
+          if (error instanceof DOMException && error.name === "AbortError") {
+          } else {
+            console.error("Error fetching content:", error);
+          }
         }
       };
       fetchContent();
       container2.addEventListener("mousemove", handleMouseMove);
       container2.addEventListener("click", handleClick);
       return () => {
+        abortController.abort();
         readerRef.current?.cancel();
         container2.removeEventListener("mousemove", handleMouseMove);
         container2.removeEventListener("click", handleClick);
         audioRef.current?.pause();
       };
     }, [audiobookId]);
+    const getSavedPosition = () => {
+      return localStorage.getItem(`audiobook-${audiobookId}-position`);
+    };
     return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
       (() => {
-        const savedPosition = localStorage.getItem(
-          `audiobook-${audiobookId}-position`
-        );
+        const savedPosition = getSavedPosition();
         if (savedPosition) {
           return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
             "button",
             {
               className: "resume-button",
-              onClick: () => handleResume(savedPosition),
-              children: "Resume from last position"
+              onClick: () => handleResume(),
+              disabled: pendingResume != null,
+              children: pendingResume ? "Loading previous position..." : "Resume Playing \u25B6\uFE0F"
             }
           );
         }

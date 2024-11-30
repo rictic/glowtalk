@@ -50,14 +50,12 @@
 
 .highlight {
   background-color: rgba(0, 0, 0, 0.1);
-}
-
-.cursor-pointer {
   cursor: pointer;
 }
 
 .playing {
   background-color: rgba(210, 180, 140, 0.3); /* Gentle tan color */
+  cursor: pointer;
 }
 
 .resume-button {
