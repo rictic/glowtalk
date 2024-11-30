@@ -40,17 +40,25 @@ class Worker:
         idle_checker = idle.create_idle_checker()
         while True:
             if not self.api_is_up():
-                print("API is down, waiting for it to come back up...")
+                if self.verbose:
+                    print("API is down, waiting for it to come back up...")
                 while not self.api_is_up():
                     time.sleep(10)
-                print("API is back up, continuing...")
+                if self.verbose:
+                    print("API is back up, continuing...")
 
             while idle_checker.get_idle_time() >= self.idle_threshold_seconds:
                 start_time = time.time()
-                response = self.client.post(
-                    "/api/queue/take",
-                    json={"worker_id": self.worker_id, "version": 1}
-                )
+                try:
+                    response = self.client.post(
+                        "/api/queue/take",
+                        json={"worker_id": self.worker_id, "version": 1}
+                    )
+                except Exception as e:
+                    if self.verbose:
+                        print(f"Error taking work item: {e}")
+                    time.sleep(60)
+                    continue
 
                 if response.status_code != 200:
                     if self.verbose:
