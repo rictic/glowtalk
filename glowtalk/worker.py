@@ -36,16 +36,19 @@ class Worker:
         except Exception:
             return False
 
+    def wait_for_api_to_come_back_up(self):
+        if not self.api_is_up():
+            if self.verbose:
+                print("API is down, waiting for it to come back up...")
+            while not self.api_is_up():
+                time.sleep(10)
+            if self.verbose:
+                print("API is back up, continuing...")
+
     def work(self):
         idle_checker = idle.create_idle_checker()
         while True:
-            if not self.api_is_up():
-                if self.verbose:
-                    print("API is down, waiting for it to come back up...")
-                while not self.api_is_up():
-                    time.sleep(10)
-                if self.verbose:
-                    print("API is back up, continuing...")
+            self.wait_for_api_to_come_back_up()
 
             while idle_checker.get_idle_time() >= self.idle_threshold_seconds:
                 start_time = time.time()
@@ -58,6 +61,7 @@ class Worker:
                     if self.verbose:
                         print(f"Error taking work item: {e}")
                     time.sleep(60)
+                    self.wait_for_api_to_come_back_up()
                     continue
 
                 if response.status_code != 200:
@@ -73,8 +77,15 @@ class Worker:
                     time.sleep(60)
                     continue
 
-                self.work_one_item(work_item)
-                if self.verbose:
+                success = False
+                try:
+                    self.work_one_item(work_item)
+                    success = True
+                except Exception as e:
+                    if self.verbose:
+                        print(f"Error processing work item: {e}")
+                    time.sleep(60)
+                if success and self.verbose:
                     print(f"Generated a voice performance in {time.time() - start_time} seconds")
 
             if self.verbose:
@@ -103,13 +114,6 @@ class Worker:
                 output_path=output_path,
             )
             files = {'generated_audio': ('audio.wav', output_path.read_bytes(), 'audio/wav')}
-            completion_response = self.client.post(
-                f"/api/queue/{work_item['id']}/complete/{self.worker_id}",
-                files=files
-            )
-
-            if completion_response.status_code != 200:
-                print(f"Error completing work item: {completion_response.status_code} {completion_response.text}")
 
         except Exception as e:
             print(f"Failed to process work item: {str(e)}")
@@ -123,3 +127,12 @@ class Worker:
             except:
                 # Don't worry about it, we tried. Probably the API is down.
                 pass
+
+        completion_response = self.client.post(
+            f"/api/queue/{work_item['id']}/complete/{self.worker_id}",
+            files=files
+        )
+
+        if completion_response.status_code != 200:
+            if self.verbose:
+                print(f"Error completing work item: {completion_response.status_code} {completion_response.text}")
