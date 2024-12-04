@@ -3,6 +3,7 @@ export interface Work {
   url: string;
   title: string | null;
   scrape_date: string;
+  num_content_pieces: number;
 }
 
 export interface Audiobook {

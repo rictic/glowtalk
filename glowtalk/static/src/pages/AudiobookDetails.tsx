@@ -196,7 +196,7 @@ export function AudiobookDetails() {
             <section className="content-section">
                 <h2>Content</h2>
                 <div className="content-container">
-                    <AudiobookContent audiobookId={audiobookId!} />
+                    <AudiobookContent audiobookId={audiobookId!} numContentPieces={work.num_content_pieces} />
                 </div>
             </section>
         </div>

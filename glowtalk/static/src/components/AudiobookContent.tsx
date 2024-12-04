@@ -1,14 +1,29 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Part } from "../types";
 import "./AudiobookContent.css";
+import { ControlStrip } from "./ControlStrip";
 
-export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
+export function AudiobookContent({
+  audiobookId,
+  numContentPieces,
+}: {
+  audiobookId: string;
+  numContentPieces: number | null | undefined;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentlyPlayingRef = useRef<Element | null>(null);
   const [pendingResume, setPendingResume] = useState<string | null>(null);
   const pendingResumeRef = useRef<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const storedContentPieceIdx = localStorage.getItem(
+    `audiobook-${audiobookId}-content-piece-idx`
+  );
+  const [contentPieceIdx, setContentPieceIdx] = useState(
+    storedContentPieceIdx ? parseInt(storedContentPieceIdx) : 0
+  );
+  const [progress, setProgress] = useState(40);
 
   const findNextAudioElement = (currentElement: Element | null) => {
     const container = containerRef.current;
@@ -44,15 +59,22 @@ export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
 
   const playAudio = (element: Element) => {
     const hash = element.getAttribute("audio-file-hash");
-    if (!hash) return;
+    const pieceIndex = element.getAttribute("piece-index");
+    if (!hash || !pieceIndex) return;
 
     const contentPieceId = element.getAttribute("piece-id");
     if (contentPieceId) {
       localStorage.setItem(`audiobook-${audiobookId}-position`, contentPieceId);
+      localStorage.setItem(
+        `audiobook-${audiobookId}-content-piece-idx`,
+        pieceIndex
+      );
     }
+    setContentPieceIdx(parseInt(pieceIndex));
 
     if (element === currentlyPlayingRef.current) {
       audioRef.current?.pause();
+      setIsPlaying(false);
       currentlyPlayingRef.current?.classList.remove("playing");
       currentlyPlayingRef.current = null;
       return;
@@ -67,6 +89,13 @@ export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
 
     audio.src = `/api/generated_wav_files/${hash}`;
     audio.play();
+    setIsPlaying(true);
+    audio.addEventListener("pause", () => {
+      setIsPlaying(false);
+    });
+    audio.addEventListener("play", () => {
+      setIsPlaying(true);
+    });
 
     currentlyPlayingRef.current = element;
     element.classList.add("playing");
@@ -94,11 +123,15 @@ export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
 
   const handleResume = () => {
     const savedPosition = getSavedPosition();
-    if (!savedPosition) return;
 
-    const element = containerRef.current?.querySelector(
-      `[piece-id="${savedPosition}"]`
-    ) as HTMLElement;
+    let element;
+    if (savedPosition) {
+      element = containerRef.current?.querySelector(
+        `[piece-id="${savedPosition}"]`
+      ) as HTMLElement;
+    } else {
+      element = findNextAudioElement(null);
+    }
 
     if (element) {
       playAudio(element);
@@ -109,12 +142,26 @@ export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
     }
   };
 
+  const handlePlayPause = () => {
+    if (isPlaying) {
+      audioRef.current?.pause();
+      setIsPlaying(false);
+    } else {
+      if (audioRef.current) {
+        audioRef.current.play();
+        setIsPlaying(true);
+      } else {
+        handleResume();
+      }
+    }
+  };
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const abortController = new AbortController();
-
+    let contentPieceIdx = 0;
     const createPartElement = (part: Part) => {
       const partContainer = document.createElement("div");
       partContainer.className = "part-container";
@@ -129,6 +176,8 @@ export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
           "audio-file-hash",
           announcementPiece.audio_file_hash
         );
+        partInfo.setAttribute("piece-index", String(contentPieceIdx));
+        contentPieceIdx++;
       }
 
       if (part.character_name) {
@@ -165,6 +214,8 @@ export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
         pieceSpan.className = "content-piece";
         pieceSpan.textContent = " " + piece.text;
         pieceSpan.setAttribute("piece-id", String(piece.id));
+        pieceSpan.setAttribute("piece-index", String(contentPieceIdx));
+        contentPieceIdx++;
         if (piece.audio_file_hash) {
           pieceSpan.setAttribute("audio-file-hash", piece.audio_file_hash);
         }
@@ -271,30 +322,27 @@ export function AudiobookContent({ audiobookId }: { audiobookId: string }) {
     };
   }, [audiobookId]);
 
+  useEffect(() => {
+    if (numContentPieces == null) {
+      setProgress(0); // dunno
+      return;
+    }
+    const progress = Math.round((contentPieceIdx / numContentPieces) * 100);
+    setProgress(progress);
+  }, [contentPieceIdx, numContentPieces]);
+
   const getSavedPosition = () => {
     return localStorage.getItem(`audiobook-${audiobookId}-position`);
   };
 
   return (
     <>
-      {(() => {
-        const savedPosition = getSavedPosition();
-        if (savedPosition) {
-          return (
-            <button
-              className="resume-button"
-              onClick={() => handleResume()}
-              disabled={pendingResume != null}
-            >
-              {pendingResume
-                ? "Loading previous position..."
-                : "Resume Playing ▶️"}
-            </button>
-          );
-        }
-        return null;
-      })()}
       <div ref={containerRef} className="audiobook-content" />
+      <ControlStrip
+        isPlaying={isPlaying}
+        onPlayPause={handlePlayPause}
+        progress={progress}
+      />
     </>
   );
 }

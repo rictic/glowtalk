@@ -40,6 +40,13 @@ class OriginalWork(Base):
             .order_by(cls.scrape_date.desc())\
             .first()
 
+    def get_num_content_pieces(self, session: Session):
+        """Get the number of content pieces for this work"""
+        return session.query(ContentPiece)\
+            .join(Part)\
+            .filter(Part.original_work_id == self.id)\
+            .count()
+
 class Part(Base):
     __tablename__ = 'parts'
 

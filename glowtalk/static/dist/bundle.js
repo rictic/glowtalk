@@ -24595,11 +24595,11 @@
               return jsxWithValidation(type, props, key, false);
             }
           }
-          var jsx10 = jsxWithValidationDynamic;
-          var jsxs9 = jsxWithValidationStatic;
+          var jsx11 = jsxWithValidationDynamic;
+          var jsxs10 = jsxWithValidationStatic;
           exports.Fragment = REACT_FRAGMENT_TYPE;
-          exports.jsx = jsx10;
-          exports.jsxs = jsxs9;
+          exports.jsx = jsx11;
+          exports.jsxs = jsxs10;
         })();
       }
     }
@@ -27252,14 +27252,36 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
 
   // src/components/AudiobookContent.tsx
   var import_react5 = __toESM(require_react());
+
+  // src/components/ControlStrip.tsx
   var import_jsx_runtime6 = __toESM(require_jsx_runtime());
-  function AudiobookContent({ audiobookId }) {
+  function ControlStrip({ isPlaying, onPlayPause, progress }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "control-strip", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { onClick: onPlayPause, className: "play-pause-button", children: isPlaying ? "\u23F8" : "\u25B6" }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "control-strip-progress-bar", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "control-strip-progress", style: { width: `${progress}%` } }) })
+    ] });
+  }
+
+  // src/components/AudiobookContent.tsx
+  var import_jsx_runtime7 = __toESM(require_jsx_runtime());
+  function AudiobookContent({
+    audiobookId,
+    numContentPieces
+  }) {
     const containerRef = (0, import_react5.useRef)(null);
     const readerRef = (0, import_react5.useRef)(null);
     const audioRef = (0, import_react5.useRef)(null);
     const currentlyPlayingRef = (0, import_react5.useRef)(null);
     const [pendingResume, setPendingResume] = (0, import_react5.useState)(null);
     const pendingResumeRef = (0, import_react5.useRef)(null);
+    const [isPlaying, setIsPlaying] = (0, import_react5.useState)(false);
+    const storedContentPieceIdx = localStorage.getItem(
+      `audiobook-${audiobookId}-content-piece-idx`
+    );
+    const [contentPieceIdx, setContentPieceIdx] = (0, import_react5.useState)(
+      storedContentPieceIdx ? parseInt(storedContentPieceIdx) : 0
+    );
+    const [progress, setProgress] = (0, import_react5.useState)(40);
     const findNextAudioElement = (currentElement) => {
       const container2 = containerRef.current;
       if (!container2)
@@ -27292,14 +27314,21 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
     };
     const playAudio = (element) => {
       const hash = element.getAttribute("audio-file-hash");
-      if (!hash)
+      const pieceIndex = element.getAttribute("piece-index");
+      if (!hash || !pieceIndex)
         return;
       const contentPieceId = element.getAttribute("piece-id");
       if (contentPieceId) {
         localStorage.setItem(`audiobook-${audiobookId}-position`, contentPieceId);
+        localStorage.setItem(
+          `audiobook-${audiobookId}-content-piece-idx`,
+          pieceIndex
+        );
       }
+      setContentPieceIdx(parseInt(pieceIndex));
       if (element === currentlyPlayingRef.current) {
         audioRef.current?.pause();
+        setIsPlaying(false);
         currentlyPlayingRef.current?.classList.remove("playing");
         currentlyPlayingRef.current = null;
         return;
@@ -27311,6 +27340,13 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
       const audio = audioRef.current;
       audio.src = `/api/generated_wav_files/${hash}`;
       audio.play();
+      setIsPlaying(true);
+      audio.addEventListener("pause", () => {
+        setIsPlaying(false);
+      });
+      audio.addEventListener("play", () => {
+        setIsPlaying(true);
+      });
       currentlyPlayingRef.current = element;
       element.classList.add("playing");
       element.classList.remove("highlight");
@@ -27332,11 +27368,14 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
     };
     const handleResume = () => {
       const savedPosition = getSavedPosition();
-      if (!savedPosition)
-        return;
-      const element = containerRef.current?.querySelector(
-        `[piece-id="${savedPosition}"]`
-      );
+      let element;
+      if (savedPosition) {
+        element = containerRef.current?.querySelector(
+          `[piece-id="${savedPosition}"]`
+        );
+      } else {
+        element = findNextAudioElement(null);
+      }
       if (element) {
         playAudio(element);
         element.scrollIntoView({ behavior: "smooth" });
@@ -27345,11 +27384,25 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
         pendingResumeRef.current = savedPosition;
       }
     };
+    const handlePlayPause = () => {
+      if (isPlaying) {
+        audioRef.current?.pause();
+        setIsPlaying(false);
+      } else {
+        if (audioRef.current) {
+          audioRef.current.play();
+          setIsPlaying(true);
+        } else {
+          handleResume();
+        }
+      }
+    };
     (0, import_react5.useEffect)(() => {
       const container2 = containerRef.current;
       if (!container2)
         return;
       const abortController = new AbortController();
+      let contentPieceIdx2 = 0;
       const createPartElement = (part) => {
         const partContainer = document.createElement("div");
         partContainer.className = "part-container";
@@ -27363,6 +27416,8 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
             "audio-file-hash",
             announcementPiece.audio_file_hash
           );
+          partInfo.setAttribute("piece-index", String(contentPieceIdx2));
+          contentPieceIdx2++;
         }
         if (part.character_name) {
           const charDiv = document.createElement("div");
@@ -27394,6 +27449,8 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
           pieceSpan.className = "content-piece";
           pieceSpan.textContent = " " + piece.text;
           pieceSpan.setAttribute("piece-id", String(piece.id));
+          pieceSpan.setAttribute("piece-index", String(contentPieceIdx2));
+          contentPieceIdx2++;
           if (piece.audio_file_hash) {
             pieceSpan.setAttribute("audio-file-hash", piece.audio_file_hash);
           }
@@ -27485,31 +27542,32 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
         audioRef.current?.pause();
       };
     }, [audiobookId]);
+    (0, import_react5.useEffect)(() => {
+      if (numContentPieces == null) {
+        setProgress(0);
+        return;
+      }
+      const progress2 = Math.round(contentPieceIdx / numContentPieces * 100);
+      setProgress(progress2);
+    }, [contentPieceIdx, numContentPieces]);
     const getSavedPosition = () => {
       return localStorage.getItem(`audiobook-${audiobookId}-position`);
     };
-    return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
-      (() => {
-        const savedPosition = getSavedPosition();
-        if (savedPosition) {
-          return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
-            "button",
-            {
-              className: "resume-button",
-              onClick: () => handleResume(),
-              disabled: pendingResume != null,
-              children: pendingResume ? "Loading previous position..." : "Resume Playing \u25B6\uFE0F"
-            }
-          );
+    return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { ref: containerRef, className: "audiobook-content" }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+        ControlStrip,
+        {
+          isPlaying,
+          onPlayPause: handlePlayPause,
+          progress
         }
-        return null;
-      })(),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { ref: containerRef, className: "audiobook-content" })
+      )
     ] });
   }
 
   // src/pages/AudiobookDetails.tsx
-  var import_jsx_runtime7 = __toESM(require_jsx_runtime());
+  var import_jsx_runtime8 = __toESM(require_jsx_runtime());
   function AudiobookDetails() {
     const { audiobookId } = useParams();
     const [audiobook, setAudiobook] = (0, import_react6.useState)(null);
@@ -27614,22 +27672,22 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
       }
     };
     if (loading)
-      return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { children: "Loading..." });
+      return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { children: "Loading..." });
     if (error)
-      return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "error", children: error });
+      return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "error", children: error });
     if (!audiobook || !work)
-      return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { children: "Audiobook not found" });
-    return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "audiobook-details", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Link, { to: `/works/${work.id}`, className: "back-link", children: "\u2190 Back to Work" }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("h1", { children: [
+      return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { children: "Audiobook not found" });
+    return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "audiobook-details", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Link, { to: `/works/${work.id}`, className: "back-link", children: "\u2190 Back to Work" }),
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("h1", { children: [
         work.title || `Glowfic #${work.id}`,
         " - Audiobook"
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("section", { className: "voice-settings", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("h2", { children: "Voice Settings" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "default-voice", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("h3", { children: "Default Voice" }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("section", { className: "voice-settings", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("h2", { children: "Voice Settings" }),
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "default-voice", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("h3", { children: "Default Voice" }),
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
             VoiceSelector,
             {
               voices: referenceVoices,
@@ -27639,9 +27697,9 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
             }
           )
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "character-voices", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("h3", { children: "Character Voices" }),
-          audiobook.characters.map((character) => /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "character-voice-item", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "character-voices", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("h3", { children: "Character Voices" }),
+          audiobook.characters.map((character) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "character-voice-item", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
             VoiceSelector,
             {
               voices: referenceVoices,
@@ -27652,9 +27710,9 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
           ) }, character.character_name))
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("section", { className: "generation-controls", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("h2", { children: "Generation" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("section", { className: "generation-controls", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("h2", { children: "Generation" }),
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
           "button",
           {
             onClick: startGeneration,
@@ -27662,9 +27720,9 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
             children: "Generate Audiobook"
           }
         ),
-        queueStatus && (queueStatus.pending > 0 || queueStatus.in_progress > 0) && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "queue-status", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { children: "Generation in progress..." }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "progress-bar-container", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+        queueStatus && (queueStatus.pending > 0 || queueStatus.in_progress > 0) && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "queue-status", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("p", { children: "Generation in progress..." }),
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "progress-bar-container", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
             "div",
             {
               className: "progress-bar",
@@ -27673,55 +27731,55 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
               }
             }
           ) }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("p", { className: "progress-percentage", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("p", { className: "progress-percentage", children: [
             (queueStatus.completed / (queueStatus.pending + queueStatus.in_progress + queueStatus.completed + queueStatus.failed) * 100).toFixed(1),
             "%"
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("ul", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("li", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("ul", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("li", { children: [
               "Pending: ",
               queueStatus.pending
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("li", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("li", { children: [
               "In Progress: ",
               queueStatus.in_progress
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("li", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("li", { children: [
               "Completed: ",
               queueStatus.completed
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("li", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("li", { children: [
               "Failed: ",
               queueStatus.failed
             ] })
           ] })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("section", { className: "content-section", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("h2", { children: "Content" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "content-container", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(AudiobookContent, { audiobookId }) })
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("section", { className: "content-section", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("h2", { children: "Content" }),
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "content-container", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(AudiobookContent, { audiobookId, numContentPieces: work.num_content_pieces }) })
       ] })
     ] });
   }
 
   // src/App.tsx
-  var import_jsx_runtime8 = __toESM(require_jsx_runtime());
+  var import_jsx_runtime9 = __toESM(require_jsx_runtime());
   function App() {
-    return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(BrowserRouter, { children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "container", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(Routes, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Route, { path: "/", element: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Home, {}) }),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Route, { path: "/works/:workId", element: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(WorkDetails, {}) }),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Route, { path: "/audiobooks/:audiobookId", element: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(AudiobookDetails, {}) })
+    return /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(BrowserRouter, { children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "container", children: /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(Routes, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Route, { path: "/", element: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Home, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Route, { path: "/works/:workId", element: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(WorkDetails, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Route, { path: "/audiobooks/:audiobookId", element: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(AudiobookDetails, {}) })
     ] }) }) });
   }
 
   // src/main.tsx
-  var import_jsx_runtime9 = __toESM(require_jsx_runtime());
+  var import_jsx_runtime10 = __toESM(require_jsx_runtime());
   var container = document.getElementById("root");
   if (!container)
     throw new Error("Failed to find root element");
   var root = (0, import_client.createRoot)(container);
   root.render(
-    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(import_react7.default.StrictMode, { children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(App, {}) })
+    /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(import_react7.default.StrictMode, { children: /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(App, {}) })
   );
 })();
 /*! Bundled license information:

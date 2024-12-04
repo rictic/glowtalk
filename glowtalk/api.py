@@ -60,6 +60,13 @@ class WorkResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class WorkDetailResponse(BaseModel):
+    id: int
+    url: str
+    title: Optional[str]
+    scrape_date: datetime
+    num_content_pieces: int
+
 class AudiobookResponse(BaseModel):
     id: int
     original_work_id: int
@@ -185,13 +192,19 @@ def get_recent_works(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@app.get("/api/works/{work_id}", response_model=WorkResponse)
+@app.get("/api/works/{work_id}", response_model=WorkDetailResponse)
 def get_work(work_id: int, db: Session = Depends(get_db)):
     """Get details about a specific work including its parts and audiobooks"""
-    work = db.get(models.OriginalWork, work_id)
+    work: models.OriginalWork = db.get(models.OriginalWork, work_id)
     if not work:
         raise HTTPException(status_code=404, detail="Work not found")
-    return work
+    return WorkDetailResponse(
+        id=work.id,
+        url=work.url,
+        title=work.title,
+        scrape_date=work.scrape_date,
+        num_content_pieces=work.get_num_content_pieces(db)
+    )
 
 @app.post("/api/works/scrape_glowfic", response_model=WorkResponse)
 def create_work(request: ScrapeGlowficRequest, db: Session = Depends(get_db)):
