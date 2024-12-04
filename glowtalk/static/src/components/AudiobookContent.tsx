@@ -24,6 +24,10 @@ export function AudiobookContent({
     storedContentPieceIdx ? parseInt(storedContentPieceIdx) : 0
   );
   const [progress, setProgress] = useState(40);
+  const [autoScroll, setAutoScroll] = useState(() => {
+    const saved = localStorage.getItem(`auto-scroll`);
+    return saved !== null ? saved === 'true' : true;
+  });
 
   const findNextAudioElement = (currentElement: Element | null) => {
     const container = containerRef.current;
@@ -112,7 +116,7 @@ export function AudiobookContent({
           rect.top >= 0 &&
           rect.bottom <=
             (window.innerHeight || document.documentElement.clientHeight);
-        if (!isVisible) {
+        if (!isVisible && autoScroll) {
           nextElement.scrollIntoView({ behavior: "smooth" });
         }
       } else {
@@ -154,6 +158,12 @@ export function AudiobookContent({
         handleResume();
       }
     }
+  };
+
+  const handleAutoScrollToggle = () => {
+    const newValue = !autoScroll;
+    setAutoScroll(newValue);
+    localStorage.setItem(`auto-scroll`, String(newValue));
   };
 
   useEffect(() => {
@@ -342,6 +352,8 @@ export function AudiobookContent({
         isPlaying={isPlaying}
         onPlayPause={handlePlayPause}
         progress={progress}
+        autoScroll={autoScroll}
+        onAutoScrollToggle={handleAutoScrollToggle}
       />
     </>
   );

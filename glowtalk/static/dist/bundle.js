@@ -27255,10 +27255,31 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
 
   // src/components/ControlStrip.tsx
   var import_jsx_runtime6 = __toESM(require_jsx_runtime());
-  function ControlStrip({ isPlaying, onPlayPause, progress }) {
+  function ControlStrip({
+    isPlaying,
+    onPlayPause,
+    progress,
+    autoScroll,
+    onAutoScrollToggle
+  }) {
     return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "control-strip", children: [
       /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { onClick: onPlayPause, className: "play-pause-button", children: isPlaying ? "\u23F8" : "\u25B6" }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "control-strip-progress-bar", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "control-strip-progress", style: { width: `${progress}%` } }) })
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "control-strip-progress-bar", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+        "div",
+        {
+          className: "control-strip-progress",
+          style: { width: `${progress}%` }
+        }
+      ) }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+        "button",
+        {
+          onClick: onAutoScrollToggle,
+          className: `auto-scroll-button ${autoScroll ? "active" : ""}`,
+          title: `Tap to ${autoScroll ? "disable" : "enable"} auto-scroll to text as its audio plays.`,
+          children: "\u{1F4DC}"
+        }
+      )
     ] });
   }
 
@@ -27282,6 +27303,10 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
       storedContentPieceIdx ? parseInt(storedContentPieceIdx) : 0
     );
     const [progress, setProgress] = (0, import_react5.useState)(40);
+    const [autoScroll, setAutoScroll] = (0, import_react5.useState)(() => {
+      const saved = localStorage.getItem(`auto-scroll`);
+      return saved !== null ? saved === "true" : true;
+    });
     const findNextAudioElement = (currentElement) => {
       const container2 = containerRef.current;
       if (!container2)
@@ -27358,7 +27383,7 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
           playAudio(nextElement);
           const rect = nextElement.getBoundingClientRect();
           const isVisible = rect.top >= 0 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight);
-          if (!isVisible) {
+          if (!isVisible && autoScroll) {
             nextElement.scrollIntoView({ behavior: "smooth" });
           }
         } else {
@@ -27396,6 +27421,11 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
           handleResume();
         }
       }
+    };
+    const handleAutoScrollToggle = () => {
+      const newValue = !autoScroll;
+      setAutoScroll(newValue);
+      localStorage.setItem(`auto-scroll`, String(newValue));
     };
     (0, import_react5.useEffect)(() => {
       const container2 = containerRef.current;
@@ -27560,7 +27590,9 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
         {
           isPlaying,
           onPlayPause: handlePlayPause,
-          progress
+          progress,
+          autoScroll,
+          onAutoScrollToggle: handleAutoScrollToggle
         }
       )
     ] });

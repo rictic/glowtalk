@@ -74,6 +74,7 @@
 }
 
 .control-strip {
+  box-sizing: border-box;
   position: fixed;
   bottom: 0;
   left: 0;
@@ -119,11 +120,40 @@
   background-color: #555;
   border-radius: 4px;
   overflow: hidden;
-  margin-right: 20px;
+  margin-right: 40px;
 }
 
 .control-strip-progress {
   height: 100%;
   background-color: #007bff;
   transition: width 0.1s ease-out;
+}
+
+.auto-scroll-button {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background-color: #555;
+  color: white;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-left: 20px;
+  flex-shrink: 0;
+  transition: background-color 0.2s;
+}
+
+.auto-scroll-button.active {
+  background-color: #007bff;
+}
+
+.auto-scroll-button:hover {
+  background-color: #0056b3;
+}
+
+.auto-scroll-button:active {
+  background-color: #004085;
 }
