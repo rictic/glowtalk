@@ -1,13 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Part } from "../types";
+import { Part, Work } from "../types";
 import "./AudiobookContent.css";
 import { ControlStrip } from "./ControlStrip";
 
 export function AudiobookContent({
   audiobookId,
+  work,
   numContentPieces,
 }: {
-  audiobookId: string;
+  audiobookId: string | null | undefined;
+  work: Work | null | undefined;
   numContentPieces: number | null | undefined;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -26,8 +28,36 @@ export function AudiobookContent({
   const [progress, setProgress] = useState(40);
   const [autoScroll, setAutoScroll] = useState(() => {
     const saved = localStorage.getItem(`auto-scroll`);
-    return saved !== null ? saved === 'true' : true;
+    return saved !== null ? saved === "true" : true;
   });
+
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.setActionHandler('play', () => handlePlayPause());
+      navigator.mediaSession.setActionHandler('pause', () => handlePlayPause());
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        if (currentlyPlayingRef.current) {
+          const nextElement = findNextAudioElement(currentlyPlayingRef.current);
+          if (nextElement) {
+            playAudio(nextElement);
+          }
+        }
+      });
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        if (currentlyPlayingRef.current) {
+          const container = containerRef.current;
+          if (!container) return;
+
+          // Find the previous audio element by searching backwards
+          const elements = Array.from(container.querySelectorAll('[audio-file-hash]'));
+          const currentIndex = elements.indexOf(currentlyPlayingRef.current);
+          if (currentIndex > 0) {
+            playAudio(elements[currentIndex - 1]);
+          }
+        }
+      });
+    }
+  }, []);
 
   const findNextAudioElement = (currentElement: Element | null) => {
     const container = containerRef.current;
@@ -91,7 +121,7 @@ export function AudiobookContent({
     }
     const audio = audioRef.current;
 
-    audio.src = `/api/generated_wav_files/${hash}`;
+    audio.src = `/api/generated_mp3_files/${hash}`;
     audio.play();
     setIsPlaying(true);
     audio.addEventListener("pause", () => {
@@ -100,6 +130,13 @@ export function AudiobookContent({
     audio.addEventListener("play", () => {
       setIsPlaying(true);
     });
+
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: element.textContent?.trim(),
+        album: work?.title ?? undefined,
+      });
+    }
 
     currentlyPlayingRef.current = element;
     element.classList.add("playing");

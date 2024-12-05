@@ -27287,6 +27287,7 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
   var import_jsx_runtime7 = __toESM(require_jsx_runtime());
   function AudiobookContent({
     audiobookId,
+    work,
     numContentPieces
   }) {
     const containerRef = (0, import_react5.useRef)(null);
@@ -27307,6 +27308,32 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
       const saved = localStorage.getItem(`auto-scroll`);
       return saved !== null ? saved === "true" : true;
     });
+    (0, import_react5.useEffect)(() => {
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.setActionHandler("play", () => handlePlayPause());
+        navigator.mediaSession.setActionHandler("pause", () => handlePlayPause());
+        navigator.mediaSession.setActionHandler("nexttrack", () => {
+          if (currentlyPlayingRef.current) {
+            const nextElement = findNextAudioElement(currentlyPlayingRef.current);
+            if (nextElement) {
+              playAudio(nextElement);
+            }
+          }
+        });
+        navigator.mediaSession.setActionHandler("previoustrack", () => {
+          if (currentlyPlayingRef.current) {
+            const container2 = containerRef.current;
+            if (!container2)
+              return;
+            const elements = Array.from(container2.querySelectorAll("[audio-file-hash]"));
+            const currentIndex = elements.indexOf(currentlyPlayingRef.current);
+            if (currentIndex > 0) {
+              playAudio(elements[currentIndex - 1]);
+            }
+          }
+        });
+      }
+    }, []);
     const findNextAudioElement = (currentElement) => {
       const container2 = containerRef.current;
       if (!container2)
@@ -27363,7 +27390,7 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
         audioRef.current = new Audio();
       }
       const audio = audioRef.current;
-      audio.src = `/api/generated_wav_files/${hash}`;
+      audio.src = `/api/generated_mp3_files/${hash}`;
       audio.play();
       setIsPlaying(true);
       audio.addEventListener("pause", () => {
@@ -27372,6 +27399,12 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
       audio.addEventListener("play", () => {
         setIsPlaying(true);
       });
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: element.textContent?.trim(),
+          album: work?.title ?? void 0
+        });
+      }
       currentlyPlayingRef.current = element;
       element.classList.add("playing");
       element.classList.remove("highlight");
@@ -27789,7 +27822,7 @@ Please change the parent <Route path="${parentPath}"> to <Route path="${parentPa
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("section", { className: "content-section", children: [
         /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("h2", { children: "Content" }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "content-container", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(AudiobookContent, { audiobookId, numContentPieces: work.num_content_pieces }) })
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "content-container", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(AudiobookContent, { audiobookId, work, numContentPieces: work.num_content_pieces }) })
       ] })
     ] });
   }

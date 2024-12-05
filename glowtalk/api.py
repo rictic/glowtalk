@@ -392,12 +392,29 @@ def get_wav_files(audiobook_id: int, db: Session = Depends(get_db)):
     hashes = [performance.audio_file_hash for performance in performances]
     return {"files": hashes, "complete": True}
 
+def get_outputs_path():
+    return Path(os.getcwd()) / 'outputs'
+
 @app.get("/api/generated_wav_files/{hash}", response_class=FileResponse)
 def get_generated_wav_file(hash: str, db: Session = Depends(get_db)):
     """Get a specific generated WAV file by its hash"""
-    file_path = Path(os.getcwd()) / 'outputs' / f"{hash}.wav"
+    file_path = get_outputs_path() / f"{hash}.wav"
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="WAV file not found")
+    # ensure the file is inside the outputs directory
+    if not file_path.is_relative_to(get_outputs_path()):
+        raise HTTPException(status_code=404, detail="WAV file not found")
+    return FileResponse(file_path)
+
+@app.get("/api/generated_mp3_files/{hash}", response_class=FileResponse)
+def get_generated_mp3_file(hash: str, db: Session = Depends(get_db)):
+    """Get a specific generated MP3 file by its hash"""
+    file_path = get_outputs_path() / f"{hash}.mp3"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="MP3 file not found")
+    # ensure the file is inside the outputs directory
+    if not file_path.is_relative_to(get_outputs_path()):
+        raise HTTPException(status_code=404, detail="MP3 file not found")
     return FileResponse(file_path)
 
 @app.post("/api/queue/take", response_model=Optional[WorkQueueItemResponse])
