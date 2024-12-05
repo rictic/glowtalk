@@ -8,7 +8,7 @@ import enum
 import hashlib
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Iterator
 from glowtalk import convert
 import time
 import uuid
@@ -165,16 +165,14 @@ class Audiobook(Base):
         # hm, but that's not possible in our current schema. need to change that
         raise NotImplementedError("Not implemented")
 
-    def get_wav_files(self, session: Session) -> Optional[list[Path]]:
+    def get_wav_files(self, session: Session) -> Iterator[Path]:
         """Get all the wav files for this audiobook"""
-        performances = self.get_performances(session)
-        return [Path(performance.audio_file_path) for performance in performances]
+        return (Path(performance.audio_file_path) for performance in self.get_performances(session))
 
-    def get_performances(self, session: Session) -> Optional[list['VoicePerformance']]:
+    def get_performances(self, session: Session) -> Iterator['VoicePerformance']:
         # Inefficient, but it's a start. Go through each content piece in each
         # part, determine our preferred speaker, and get the audio file path
         # for it
-        performances = []
         original_work = self.original_work
         for part in original_work.parts:
             for content_piece in part.content_pieces:
@@ -182,9 +180,8 @@ class Audiobook(Base):
                     continue
                 performance = content_piece.get_performance_for_audiobook(session, self)
                 if not performance:
-                    return None
-                performances.append(performance)
-        return performances
+                    raise ValueError(f"No performance found for content piece {content_piece.text} (id {content_piece.id})")
+                yield performance
 
     def add_work_queue_items(self, session: Session):
         # Get all content pieces that need voicing.
@@ -234,8 +231,6 @@ class Audiobook(Base):
         output_path = Path(os.getcwd()) / "outputs" / filename
         output_path = output_path.resolve()
         wav_files = self.get_wav_files(session)
-        if wav_files is None:
-            return None
         convert.combine_wav_to_mp3(wav_files, output_path)
         self.mp3_path = str(output_path)
         session.add(self)

@@ -3,8 +3,9 @@ import subprocess
 from pathlib import Path
 from typing import List, Iterator
 import numpy as np
+import itertools
 
-def stream_wav_chunks(wav_files: List[Path], chunk_size: int = 8192) -> Iterator[np.ndarray]:
+def stream_wav_chunks(wav_files: Iterator[Path], chunk_size: int = 8192) -> Iterator[np.ndarray]:
     """Stream audio data from WAV files in chunks."""
     for wav_file in wav_files:
         with sf.SoundFile(wav_file) as f:
@@ -14,14 +15,15 @@ def stream_wav_chunks(wav_files: List[Path], chunk_size: int = 8192) -> Iterator
                     break
                 yield chunk
 
-def combine_wav_to_mp3(wav_files: List[Path], output_mp3_path: Path) -> None:
+def combine_wav_to_mp3(wav_files: Iterator[Path], output_mp3_path: Path) -> None:
     """Combine multiple WAV files into a single MP3 file using streaming."""
     if not wav_files:
         raise ValueError("No input files provided")
-    print(f"Combining {len(wav_files)} WAV files into {output_mp3_path}")
-
     # Get audio properties from first file
-    with sf.SoundFile(wav_files[0]) as f:
+    first_file = next(wav_files)
+    if first_file is None:
+        raise ValueError(f"No input files provided to generate {output_mp3_path}")
+    with sf.SoundFile(first_file) as f:
         sample_rate = f.samplerate
         channels = f.channels
 
@@ -48,7 +50,7 @@ def combine_wav_to_mp3(wav_files: List[Path], output_mp3_path: Path) -> None:
 
     try:
         # Stream chunks to FFmpeg
-        for chunk in stream_wav_chunks(wav_files):
+        for chunk in stream_wav_chunks(itertools.chain([first_file],    wav_files)):
             chunk = chunk.astype(np.float32)
             process.stdin.write(chunk.tobytes())
 
@@ -67,10 +69,10 @@ def combine_wav_to_mp3(wav_files: List[Path], output_mp3_path: Path) -> None:
         raise e
 
 if __name__ == "__main__":
+    def gen():
+        yield Path("outputs/output 42.wav")
+        yield Path("outputs/output 43.wav")
     combine_wav_to_mp3(
-        [
-            Path("outputs/output 42.wav"),
-            Path("outputs/output 43.wav"),
-        ],
+        gen(),
         Path("output.mp3")
     )
