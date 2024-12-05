@@ -138,6 +138,10 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     queue_status = client.get("/api/queue/status").json()
     assert queue_status == expected_queue_status
 
+    # Converted no files to mp3 yet.
+    expected_mp3_count = 0
+    assert mock_combine_wav_to_mp3() == expected_mp3_count
+
     worker_id = "test_worker"
     worker = Worker(client, verbose=False, idle_threshold_seconds=5)
 
@@ -157,6 +161,8 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
         expected_queue_status["completed"] += 1
         expected_queue_status["in_progress"] -= 1
         assert expected_queue_status == client.get("/api/queue/status").json()
+        expected_mp3_count += 1
+        assert mock_combine_wav_to_mp3() == expected_mp3_count
 
 
     response = client.get(f"/api/audiobooks/{audiobook_id}/details")
@@ -211,26 +217,28 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
         b"generated audio data for This is Bob."
     ]
 
-    assert mock_combine_wav_to_mp3() == 0
+    assert mock_combine_wav_to_mp3() == expected_mp3_count
     response = client.get(f"/api/audiobooks/{audiobook_id}/mp3")
     assert response.status_code == 200
     mp3_file = response.content
     assert mp3_file == b"".join(wav_file_contents)
-    assert mock_combine_wav_to_mp3() == 1
+    expected_mp3_count += 1
+    assert mock_combine_wav_to_mp3() == expected_mp3_count
 
     # get it again, but it shouldn't call convert again
     response = client.get(f"/api/audiobooks/{audiobook_id}/mp3")
     assert response.status_code == 200
     mp3_file = response.content
     assert mp3_file == b"".join(wav_file_contents)
-    assert mock_combine_wav_to_mp3() == 1 # was cached
+    assert mock_combine_wav_to_mp3() == expected_mp3_count # was cached
 
     # but a POST request forces a new generation
     response = client.post(f"/api/audiobooks/{audiobook_id}/mp3")
     assert response.status_code == 200
     mp3_file = response.content
     assert mp3_file == b"".join(wav_file_contents)
-    assert mock_combine_wav_to_mp3() == 2
+    expected_mp3_count += 1
+    assert mock_combine_wav_to_mp3() == expected_mp3_count
 
     response = client.post(f"/api/works/scrape_glowfic", json={"post_id": 5678})
     assert response.status_code == 200

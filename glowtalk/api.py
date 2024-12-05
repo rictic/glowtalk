@@ -9,7 +9,7 @@ import os
 import json
 import re
 from pathlib import Path
-from glowtalk import glowfic_scraper
+from glowtalk import glowfic_scraper, convert
 from fastapi.responses import FileResponse
 import hashlib
 from fastapi.staticfiles import StaticFiles
@@ -458,6 +458,7 @@ async def complete_work_item(
     output_path = output_path.resolve()
     if not output_path.exists():
         output_path.write_bytes(file_content)
+    convert.combine_wav_to_mp3([output_path], output_path.with_suffix(".mp3"))
 
     # Create the performance record and complete the work item
     performance = models.VoicePerformance(
