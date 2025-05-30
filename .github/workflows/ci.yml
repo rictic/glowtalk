@@ -19,13 +19,15 @@ jobs:
           python-version: '3.11'
 
       - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-          uv --version # Verify installation
+        uses: astral-sh/setup-uv@v1
+        # Optionally, specify a uv version:
+        # with:
+        # version: "0.1.x" # Replace with a specific version if needed
 
       - name: Install dependencies
         run: uv pip install .[dev]
+        env:
+          UV_SYSTEM_PYTHON: '1'
 
       - name: Run tests
         run: pytest
