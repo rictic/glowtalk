@@ -235,7 +235,6 @@ def test_create_speaker_missing_reference(client):
 async def test_audiobook_generation_progress(client, db_session, mock_glowfic_scraper,
                                      mock_speaker_model, test_cwd):
     """Test SSE endpoint for monitoring audiobook generation progress"""
-    pytest.skip("skipping")
     # First create a speaker and audiobook using the FastAPI test client
     response = client.post(
         "/api/speakers",
@@ -282,25 +281,24 @@ async def test_audiobook_generation_progress(client, db_session, mock_glowfic_sc
         async with client.stream("GET", f"/api/audiobooks/{audiobook_id}/generation_progress") as response:
             assert response.status_code == 200
             assert response.headers["content-type"] == "text/event-stream"
-            return
-            # Get and verify first event
             messages = AsyncSSEMessageParser.from_response(response)
-            message = await anext(messages)
+
+            # Initial event reflects queued work
+            message = await asyncio.wait_for(anext(messages), timeout=0.1)
             first_event = json.loads(message)
             assert first_event["pending"] == queued_items
             assert first_event["in_progress"] == 0
             assert first_event["completed"] == 0
 
-            # Complete all work items
-            work_items = db_session.query(models.WorkQueue)\
-            .filter_by(audiobook_id=audiobook_id).all()
+            # Mark all work items completed
+            work_items = db_session.query(models.WorkQueue).filter_by(audiobook_id=audiobook_id).all()
             for item in work_items:
                 item.status = "completed"
             db_session.commit()
 
-            # Get and verify final event
-            event_data = next(response.iter_lines())
-            final_event = json.loads(event_data.decode().replace("data: ", ""))
+            # Next event reports completion
+            message = await asyncio.wait_for(anext(messages), timeout=0.1)
+            final_event = json.loads(message)
             assert final_event["pending"] == 0
             assert final_event["in_progress"] == 0
             assert final_event["completed"] == queued_items
@@ -390,28 +388,21 @@ async def test_stream_ok():
 
         stream_task = asyncio.create_task(stream_handler())
 
-        # Wait for the response to be ready
-        return  # TEMPORARY: Let's just verify we can get the response first
+        # Wait for the stream to be opened
         response = await stream_task
 
-        expected_lines = ["ok"] * 3
         messages = AsyncSSEMessageParser.from_response(response)
 
-        # First message comes immediately
-        message = await anext(messages)
-        assert message == expected_lines.pop(0)
-
-        # For remaining messages, we need to trigger them
+        # Trigger and verify two events
         for _ in range(2):
-            # Wake up the stream
             wake_response = await client.post("/api/wake_ok_stream")
             assert wake_response.status_code == 200
+            message = await asyncio.wait_for(anext(messages), timeout=0.1)
+            assert message == "ok"
 
-            # Get next message
-            message = await anext(messages)
-            assert message == expected_lines.pop(0)
-
-        assert expected_lines == []
+        # No further events without waking
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(anext(messages), timeout=0.1)
 
 @pytest.mark.asyncio
 async def test_ok_event(test_server):
