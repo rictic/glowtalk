@@ -41,6 +41,9 @@ MOCK_GLOWFIC_HTML = """
 """
 
 SECOND_MOCK_GLOWFIC_HTML = """
+<div class="content-header">
+    <span id="post-title">Test Post Title</span>
+</div>
 <div class="post-container">
     <div class="post-post">
         <div class="post-info-text">
