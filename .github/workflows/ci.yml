@@ -1,4 +1,4 @@
-name: Python CI
+name: Nix CI Build and Test
 
 on:
   push:
@@ -7,27 +7,36 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  nix_build_and_test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v13
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v1
-        # Optionally, specify a uv version:
-        # with:
-        # version: "0.1.x" # Replace with a specific version if needed
+      - name: Start Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v7
 
-      - name: Install dependencies
-        run: uv pip install .[dev]
-        env:
-          UV_SYSTEM_PYTHON: '1'
+      - name: Build with Nix
+        run: nix build .#package
 
-      - name: Run tests
-        run: pytest
+      - name: Check for frontend assets
+        run: |
+          echo "Checking for frontend assets in ./result..."
+          ls -lh ./result/lib/python3.11/site-packages/glowtalk/static/dist/
+          if [ ! -f ./result/lib/python3.11/site-packages/glowtalk/static/dist/bundle.js ]; then
+            echo "Error: bundle.js not found!"
+            exit 1
+          fi
+          # Assuming bundle.css might or might not be there, as per previous discussions.
+          # If its presence is mandatory, uncomment the following check:
+          # if [ ! -f ./result/lib/python3.11/site-packages/glowtalk/static/dist/bundle.css ]; then
+          #   echo "Error: bundle.css not found!"
+          #   exit 1
+          # fi
+          echo "Frontend assets check completed."
+
+      - name: Run tests with Nix
+        run: nix develop .#devShell --command pytest
