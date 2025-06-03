@@ -16,19 +16,40 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        
+        # Import custom packages
+        customPythonPackages = import ./packages { 
+          inherit pkgs; 
+          pythonPackages = pkgs.python311Packages;
+        };
 
-        # Common Python packages available in nixpkgs
-        availablePythonPkgs = with pkgs.python311Packages; [
+        # All Python dependencies from pyproject.toml, managed by Nix
+        pythonDeps = with pkgs.python311Packages; [
+          # Core dependencies from pyproject.toml
           beautifulsoup4
           sqlalchemy
+          pysbd
           alembic
           fastapi
           uvicorn
           pydantic
+          python-multipart
           httpx
+          ffmpeg-python
           pydub
+          sse-starlette
+          
+          # Development dependencies
           pytest
+          pytest-httpx
+          pytest-watch
           pytest-asyncio
+        ] ++ [
+          # Custom packages
+          customPythonPackages.TTS
+        ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+          # macOS-specific dependencies would go here
+          # Note: pyobjc is not available in nixpkgs, so this might need a custom package
         ];
 
         # System dependencies
@@ -37,6 +58,8 @@
             pkgs.ffmpeg
             pkgs.nodejs_20
             pkgs.esbuild
+            pkgs.espeak # Required for TTS
+            pkgs.sox # Audio processing for TTS
           ]
           ++ (
             if pkgs.stdenv.isDarwin then
@@ -82,7 +105,7 @@
 
           nativeBuildInputs = with pkgs.python311Packages; [ hatchling ];
           buildInputs = systemDeps;
-          propagatedBuildInputs = availablePythonPkgs;
+          propagatedBuildInputs = pythonDeps;
 
           postInstall = ''
             target_static_dir="$out/lib/python3.11/site-packages/glowtalk/static"
@@ -99,43 +122,25 @@
           };
         };
 
-        # Development shell
+        # Development shell - purely Nix-based
         devShell = pkgs.mkShell {
           buildInputs = [
             pkgs.python311
-            pkgs.python311Packages.pip
-            pkgs.python311Packages.virtualenv
-          ] ++ systemDeps;
-
-          propagatedBuildInputs = availablePythonPkgs;
+          ] ++ systemDeps ++ pythonDeps;
 
           shellHook = ''
             echo "🎤 Glowtalk development environment activated!"
             echo ""
-
-            # Set up Python virtual environment
-            if [ ! -d ".venv-nix" ]; then
-              echo "Creating Python virtual environment..."
-              python -m venv .venv-nix
-            fi
-
-            source .venv-nix/bin/activate
-            echo "✅ Virtual environment activated"
-
-            # Install project in editable mode
-            if ! pip show glowtalk &>/dev/null; then
-              echo "Installing project in editable mode..."
-              pip install -e .
-            fi
-
+            echo "✅ All dependencies managed by Nix"
             echo ""
             echo "📋 Available commands:"
             echo "  python -m glowtalk --help    # Run the application"
             echo "  python -m pytest            # Run tests"
             echo "  cd glowtalk/static && npm run build  # Build frontend"
             echo ""
-            echo "📦 Missing dependencies will be installed via pip automatically"
-            echo "   when you run the application for the first time."
+            echo "🔧 Development tools:"
+            echo "  python --version             # Python $(python --version | cut -d' ' -f2)"
+            echo "  python -c 'import glowtalk; print(\"glowtalk module available\")'  # Test imports"
           '';
         };
       in
