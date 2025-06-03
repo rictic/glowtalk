@@ -145,6 +145,7 @@ class AudiobookDetailResponse(BaseModel):
     default_speaker: Optional[CharacterVoiceDetailResponse] = None
     created_at: datetime
     characters: List[CharacterVoiceDetailResponse]
+    has_mp3: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -605,6 +606,7 @@ def get_audiobook_details(audiobook_id: int, db: Session = Depends(get_db)):
 
     return AudiobookDetailResponse(
         **audiobook_dict,
+        has_mp3=audiobook.mp3_path is not None,
         characters=character_voices
     )
 
