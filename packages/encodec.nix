@@ -1,10 +1,11 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, numpy
-, torch
-, torchaudio
-, einops
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  numpy,
+  torch,
+  torchaudio,
+  einops,
 }:
 
 buildPythonPackage rec {

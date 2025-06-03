@@ -16,41 +16,37 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        
-        # Import custom packages
-        customPythonPackages = import ./packages { 
-          inherit pkgs; 
-          pythonPackages = pkgs.python311Packages;
-        };
 
         # All Python dependencies from pyproject.toml, managed by Nix
-        pythonDeps = with pkgs.python311Packages; [
-          # Core dependencies from pyproject.toml
-          beautifulsoup4
-          sqlalchemy
-          pysbd
-          alembic
-          fastapi
-          uvicorn
-          pydantic
-          python-multipart
-          httpx
-          ffmpeg-python
-          pydub
-          sse-starlette
-          
-          # Development dependencies
-          pytest
-          pytest-httpx
-          pytest-watch
-          pytest-asyncio
-        ] ++ [
-          # Custom packages
-          customPythonPackages.TTS
-        ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-          # macOS-specific dependencies would go here
-          # Note: pyobjc is not available in nixpkgs, so this might need a custom package
-        ];
+        pythonDeps =
+          with pkgs.python311Packages;
+          [
+            # Core dependencies from pyproject.toml
+            beautifulsoup4
+            sqlalchemy
+            pysbd
+            alembic
+            fastapi
+            uvicorn
+            pydantic
+            python-multipart
+            httpx
+            ffmpeg-python
+            pydub
+            sse-starlette
+            requests # needed by glowfic_scraper
+            attrs # needed by tests
+
+            # Development dependencies
+            pytest
+            pytest-httpx
+            pytest-watch
+            pytest-asyncio
+          ]
+          ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+            # macOS-specific dependencies would go here
+            # Note: pyobjc is not available in nixpkgs, so this might need a custom package
+          ];
 
         # System dependencies
         systemDeps =
@@ -124,14 +120,20 @@
 
         # Development shell - purely Nix-based
         devShell = pkgs.mkShell {
-          buildInputs = [
-            pkgs.python311
-          ] ++ systemDeps ++ pythonDeps;
+          buildInputs =
+            [
+              pkgs.python311
+            ]
+            ++ systemDeps
+            ++ pythonDeps;
 
           shellHook = ''
             echo "🎤 Glowtalk development environment activated!"
             echo ""
-            echo "✅ All dependencies managed by Nix"
+            echo "✅ Core dependencies managed by Nix"
+            echo ""
+            echo "⚠️  Note: TTS functionality requires additional setup"
+            echo "   For TTS: pip install TTS>=0.22.0"
             echo ""
             echo "📋 Available commands:"
             echo "  python -m glowtalk --help    # Run the application"
