@@ -101,8 +101,8 @@
               [ ]
             else
               [
-                pkgs.espeak-ng # TTS backend for Linux
-                pkgs.alsa-lib # Audio support for Linux
+                # pkgs.espeak-ng # TTS backend for Linux
+                # pkgs.alsa-lib # Audio support for Linux
               ]
           );
 
