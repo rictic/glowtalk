@@ -162,11 +162,9 @@
           shellHook = ''
             echo "🎤 Glowtalk development environment activated!"
             echo ""
-            echo "✅ All dependencies managed by Nix (including TTS)"
-            echo ""
             echo "📋 Available commands:"
             echo "  python -m glowtalk --help    # Run the application"
-            echo "  python -m pytest            # Run tests"
+            echo "  pytest                       # Run tests"
             echo "  cd glowtalk/static && npm run build  # Build frontend"
             echo ""
             echo "🔧 Development tools:"
