@@ -102,7 +102,7 @@
             else
               [
                 pkgs.espeak-ng # TTS backend for Linux
-                pkgs.alsaLib # Audio support for Linux
+                pkgs.alsa-lib # Audio support for Linux
               ]
           );
 
