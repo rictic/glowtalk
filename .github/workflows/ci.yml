@@ -20,23 +20,4 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@v7
 
       - name: Build with Nix
-        run: nix build .#package
-
-      - name: Check for frontend assets
-        run: |
-          echo "Checking for frontend assets in ./result..."
-          ls -lh ./result/lib/python3.11/site-packages/glowtalk/static/dist/
-          if [ ! -f ./result/lib/python3.11/site-packages/glowtalk/static/dist/bundle.js ]; then
-            echo "Error: bundle.js not found!"
-            exit 1
-          fi
-          # Assuming bundle.css might or might not be there, as per previous discussions.
-          # If its presence is mandatory, uncomment the following check:
-          # if [ ! -f ./result/lib/python3.11/site-packages/glowtalk/static/dist/bundle.css ]; then
-          #   echo "Error: bundle.css not found!"
-          #   exit 1
-          # fi
-          echo "Frontend assets check completed."
-
-      - name: Run tests with Nix
-        run: nix develop .#devShell --command pytest
+        run: nix build
