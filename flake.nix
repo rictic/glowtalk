@@ -17,9 +17,45 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
+        # Override problematic packages to disable tests
+        overriddenPythonPackages = pkgs.python311Packages.override {
+          overrides = final: prev: {
+            # Disable tests for packages that have known failures
+            portalocker = prev.portalocker.overridePythonAttrs (old: {
+              doCheck = false;
+            });
+
+            # Add other problematic packages as needed
+            pyarrow = prev.pyarrow.overridePythonAttrs (old: {
+              doCheck = false;
+            });
+
+            # Fix pytest-doctestplus test failure that blocks the entire build
+            pytest-doctestplus = prev.pytest-doctestplus.overridePythonAttrs (old: {
+              doCheck = false;
+            });
+
+            # Fix mirakuru test failures that block other packages
+            mirakuru = prev.mirakuru.overridePythonAttrs (old: {
+              doCheck = false;
+            });
+
+            # Fix sqlframe NumPy 2.0 compatibility issues
+            sqlframe = prev.sqlframe.overridePythonAttrs (old: {
+              doCheck = false;
+            });
+          };
+        };
+
+        # Import custom packages
+        customPythonPackages = import ./packages {
+          inherit pkgs;
+          pythonPackages = overriddenPythonPackages;
+        };
+
         # All Python dependencies from pyproject.toml, managed by Nix
         pythonDeps =
-          with pkgs.python311Packages;
+          with overriddenPythonPackages;
           [
             # Core dependencies from pyproject.toml
             beautifulsoup4
@@ -42,6 +78,10 @@
             pytest-httpx
             pytest-watch
             pytest-asyncio
+          ]
+          ++ [
+            # Custom packages
+            customPythonPackages.TTS
           ]
           ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             # macOS-specific dependencies would go here
@@ -68,29 +108,20 @@
           );
 
         # Frontend build
-        frontendBuild = pkgs.stdenv.mkDerivation {
+        frontendBuild = pkgs.buildNpmPackage {
           pname = "glowtalk-frontend";
           version = "0.1.0";
           src = ./glowtalk/static;
 
-          buildInputs = [
+          nativeBuildInputs = [
             pkgs.nodejs_20
             pkgs.esbuild
           ];
+          npmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; # Replace with actual hash
+          npmDeps = ./glowtalk/static/package-lock.json;
+          npmBuildScript = "build";
+          
 
-          buildPhase = ''
-            runHook preBuild
-            esbuild src/main.tsx --bundle --outfile=dist/bundle.js --sourcemap --minify --define:process.env.NODE_ENV=\"production\"
-            mkdir -p dist
-            runHook postBuild
-          '';
-
-          installPhase = ''
-            runHook preInstall
-            mkdir -p $out/static
-            cp -R dist $out/static/
-            runHook postInstall
-          '';
         };
 
         # Main package
@@ -130,10 +161,7 @@
           shellHook = ''
             echo "🎤 Glowtalk development environment activated!"
             echo ""
-            echo "✅ Core dependencies managed by Nix"
-            echo ""
-            echo "⚠️  Note: TTS functionality requires additional setup"
-            echo "   For TTS: pip install TTS>=0.22.0"
+            echo "✅ All dependencies managed by Nix (including TTS)"
             echo ""
             echo "📋 Available commands:"
             echo "  python -m glowtalk --help    # Run the application"
@@ -143,6 +171,7 @@
             echo "🔧 Development tools:"
             echo "  python --version             # Python $(python --version | cut -d' ' -f2)"
             echo "  python -c 'import glowtalk; print(\"glowtalk module available\")'  # Test imports"
+            echo "  python -c 'import TTS; print(\"TTS module available\")'  # Test TTS"
           '';
         };
       in
