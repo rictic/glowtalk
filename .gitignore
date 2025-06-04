@@ -7,3 +7,4 @@ __pycache__
 /audiobooks.db
 /bak-audiobooks.db
 /glowtalk/static/node_modules
+/result

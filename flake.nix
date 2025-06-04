@@ -129,6 +129,7 @@
           pname = "glowtalk";
           version = "0.1.0";
           src = ./.;
+          format = "pyproject";
 
           nativeBuildInputs = with pkgs.python311Packages; [ hatchling ];
           buildInputs = systemDeps;
