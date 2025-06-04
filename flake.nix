@@ -113,15 +113,15 @@
           version = "0.1.0";
           src = ./glowtalk/static;
 
-          nativeBuildInputs = [
-            pkgs.nodejs_20
-            pkgs.esbuild
-          ];
-          npmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; # Replace with actual hash
-          npmDeps = ./glowtalk/static/package-lock.json;
+          npmDepsHash = "sha256-cIQnd58zkN55avY0xkraiDjboIknky1fX6mV3XQJdeE=";
           npmBuildScript = "build";
-          
 
+          installPhase = ''
+            runHook preInstall
+            mkdir -p $out/static
+            cp -R dist $out/static/
+            runHook postInstall
+          '';
         };
 
         # Main package
