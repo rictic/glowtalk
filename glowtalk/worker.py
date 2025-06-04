@@ -8,19 +8,34 @@ from glowtalk import models, speak, idle
 import httpx
 
 class Worker:
-    def __init__(self, client: httpx.Client, verbose: bool = False, idle_threshold_seconds: int = 30):
+    def __init__(self, client: httpx.Client, verbose: bool = False, idle_threshold_seconds: int = 30,
+                 worker_id: str | None = None, worker_id_dir: Path | None = None):
         self.client = client
         self.verbose = verbose
         self.idle_threshold_seconds = idle_threshold_seconds
         # one speaker per model
         self.speakers: dict[models.SpeakerModel, speak.Speaker] = dict()
 
-        self.worker_id_path = Path.home() / ".glowtalk_worker_id"
-        if not self.worker_id_path.exists():
-            self.worker_id = str(uuid.uuid4())
-            self.worker_id_path.write_text(self.worker_id)
+        if worker_id:
+            # Use provided worker ID (useful for tests)
+            self.worker_id = worker_id
         else:
-            self.worker_id = self.worker_id_path.read_text()
+            # Try to get/create persistent worker ID
+            if worker_id_dir is None:
+                worker_id_dir = Path.home()
+
+            self.worker_id_path = worker_id_dir / ".glowtalk_worker_id"
+            try:
+                if self.worker_id_path.exists():
+                    self.worker_id = self.worker_id_path.read_text().strip()
+                else:
+                    self.worker_id = str(uuid.uuid4())
+                    self.worker_id_path.write_text(self.worker_id)
+            except (OSError, PermissionError):
+                # Fallback to temporary worker ID if we can't write to filesystem
+                # This happens in Nix builds or other restricted environments
+                self.worker_id = str(uuid.uuid4())
+
         self.tempdir = Path(tempfile.TemporaryDirectory().name)
         self.tempdir.mkdir(exist_ok=True)
 

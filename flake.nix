@@ -93,7 +93,6 @@
           [
             pkgs.ffmpeg
             pkgs.nodejs_20
-            pkgs.esbuild
             pkgs.espeak # Required for TTS
             pkgs.sox # Audio processing for TTS
           ]
@@ -135,14 +134,26 @@
           buildInputs = systemDeps;
           propagatedBuildInputs = pythonDeps;
 
+          # Enable tests during build
+          doCheck = true;
+          nativeCheckInputs = with overriddenPythonPackages; [
+            pytest
+            pytest-httpx
+            pytest-asyncio
+          ];
+
+          checkPhase = ''
+            runHook preCheck
+            # Run pytest with verbose output
+            pytest -v
+            runHook postCheck
+          '';
+
           postInstall = ''
             target_static_dir="$out/lib/python3.11/site-packages/glowtalk/static"
             mkdir -p $target_static_dir
             cp -R ${frontendBuild}/static/dist $target_static_dir/
           '';
-
-          # Skip tests during build since some dependencies aren't available
-          doCheck = false;
 
           meta = with pkgs.lib; {
             description = "Generate audiobooks for Glowfics";

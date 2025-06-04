@@ -138,7 +138,7 @@ def test_full_workflow(client, db_session, mock_glowfic_scraper, mock_speaker_mo
     assert queue_status == expected_queue_status
 
     worker_id = "test_worker"
-    worker = Worker(client, verbose=False, idle_threshold_seconds=5)
+    worker = Worker(client, verbose=False, idle_threshold_seconds=5, worker_id=worker_id)
 
     while True:
         response = client.post("/api/queue/take", json={"worker_id": worker_id, "version": 1})
