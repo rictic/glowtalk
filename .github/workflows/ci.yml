@@ -19,5 +19,16 @@ jobs:
       - name: Start Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v7
 
+      - name: Delete ubuntu bullshit
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - name: Build with Nix
         run: nix build
