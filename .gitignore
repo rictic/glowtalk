@@ -8,3 +8,5 @@ __pycache__
 /bak-audiobooks.db
 /glowtalk/static/node_modules
 /result
+/.direnv/
+/.envrc.local
