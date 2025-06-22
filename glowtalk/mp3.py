@@ -286,13 +286,19 @@ def _extract_mp3_frames(path: pathlib.Path) -> Iterable[bytes]:
 if __name__ == "__main__":
     import sys
 
-    if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <mp3 file>")
+    if len(sys.argv) < 2:
+        print(f"Usage: {sys.argv[0]} <mp3 file> # for info")
+        print("   or:  mp3_concat.py <mp3 file1> <mp3 file2> ... > output.mp3 # to concatenate")
         sys.exit(1)
 
-    mp3_path = pathlib.Path(sys.argv[1])
-    if not mp3_path.is_file():
-        print(f"Error: {mp3_path} is not a valid file.")
-        sys.exit(1)
+    if len(sys.argv) == 2:
+        mp3_path = pathlib.Path(sys.argv[1])
+        if not mp3_path.is_file():
+            print(f"Error: {mp3_path} is not a valid file.")
+            sys.exit(1)
+        print_frame_info(mp3_path)
 
-    print_frame_info(mp3_path)
+    mp3_paths = [pathlib.Path(arg) for arg in sys.argv[1:]]
+    for bytes in concat_mp3_files(mp3_paths):
+        sys.stdout.buffer.write(bytes)
+
