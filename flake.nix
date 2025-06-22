@@ -177,11 +177,6 @@
             echo "  python -m glowtalk --help    # Run the application"
             echo "  pytest                       # Run tests"
             echo "  cd glowtalk/static && npm run build  # Build frontend"
-            echo ""
-            echo "🔧 Development tools:"
-            echo "  python --version             # Python $(python --version | cut -d' ' -f2)"
-            echo "  python -c 'import glowtalk; print(\"glowtalk module available\")'  # Test imports"
-            echo "  python -c 'import TTS; print(\"TTS module available\")'  # Test TTS"
           '';
         };
       in
