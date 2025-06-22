@@ -93,6 +93,7 @@
           [
             pkgs.ffmpeg
             pkgs.nodejs_20
+            pkgs.lame # For fine grained control over MP3 encoding
             pkgs.espeak # Required for TTS
             pkgs.sox # Audio processing for TTS
           ]
