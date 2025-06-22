@@ -1,4 +1,4 @@
-name: Nix CI Build and Test
+name: Python CI
 
 on:
   push:
@@ -7,28 +7,27 @@ on:
     branches: [ main ]
 
 jobs:
-  nix_build_and_test:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v13
-
-      - name: Start Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v7
-
-      - name: Delete ubuntu bullshit
-        uses: jlumbroso/free-disk-space@main
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true
+          python-version: '3.11'
 
-      - name: Build with Nix
-        run: nix build
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
+        # Optionally, specify a uv version:
+        # with:
+        # version: "0.1.x" # Replace with a specific version if needed
+
+      - name: Install dependencies
+        run: uv pip install .[dev]
+        env:
+          UV_SYSTEM_PYTHON: '1'
+
+      - name: Run tests
+        run: pytest
