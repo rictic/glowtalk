@@ -3,10 +3,10 @@
 import pathlib
 import struct
 
-from typing import BinaryIO, Generator, NamedTuple, Sequence
+from typing import BinaryIO, Iterator, Generator, NamedTuple, Sequence
 
 
-def concat_mp3_files(input_paths: Sequence[pathlib.Path]) -> Generator[bytes]:
+def concat_mp3_files(input_paths: Sequence[pathlib.Path]) -> Iterator[bytes]:
     """Concatenate the given mp3 files.
 
     Reads each input path in turn, and yields `bytes` for the frames found.
@@ -362,7 +362,7 @@ class Mp3Parser:
 
         return main_data_begin > 0
 
-    def __iter__(self) -> Generator[Mp3Frame]:
+    def __iter__(self) -> Iterator[Mp3Frame]:
         """Iterate over MP3 frames in the file."""
         while True:
             # Look for frame sync (11 bits set)
