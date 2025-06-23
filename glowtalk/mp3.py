@@ -12,7 +12,12 @@ def concat_mp3_files(input_paths: Iterable[pathlib.Path]) -> Iterable[bytes]:
 
     The mp3 files must all be encoded with independent frames (no bit reservoir). Raises an error if any frame uses the bit reservoir. This is
     key to making this low overhead enough to be done on demand for users.
+
+    Note: VBR headers (Xing/LAME) are stripped from the first frame to prevent duration
+    metadata issues in concatenated files. This may cause some players to initially
+    show incorrect duration until they scan the full file.
     """
+    first_file = True
     for path in input_paths:
         # Check if file uses bit reservoir before processing
         _, _, _, _, uses_bit_reservoir = _analyze_mp3_frames(path)
@@ -20,7 +25,12 @@ def concat_mp3_files(input_paths: Iterable[pathlib.Path]) -> Iterable[bytes]:
             raise ValueError(f"File {path} uses bit reservoir and cannot be concatenated")
 
         # Yield frames from this file
-        yield from _extract_mp3_frames(path)
+        for frame_data in _extract_mp3_frames(path):
+            if first_file:
+                # Strip VBR headers from the first frame of the first file
+                frame_data = _strip_vbr_header(frame_data)
+                first_file = False
+            yield frame_data
 
 
 def print_frame_info(path: pathlib.Path) -> None:
@@ -281,6 +291,60 @@ def _extract_mp3_frames(path: pathlib.Path) -> Iterable[bytes]:
                     f.seek(-3, 1)
             else:
                 f.seek(-3, 1)
+
+
+def _strip_vbr_header(frame_data: bytes) -> bytes:
+    """Strip VBR header (Xing/LAME/VBRI) from an MP3 frame if present.
+
+    VBR headers contain metadata about the entire file (frame count, duration, etc.)
+    which becomes incorrect when concatenating files. Removing them forces players
+    to scan the entire file for accurate duration.
+    """
+    if len(frame_data) < 40:  # Too small to have VBR header
+        return frame_data
+
+    # Parse MP3 header to find where side info ends and main data begins
+    version_bits = (frame_data[1] & 0x18) >> 3
+    channel_mode = (frame_data[3] & 0xC0) >> 6
+    protection_bit = frame_data[1] & 0x01
+
+    # Calculate side info size
+    if version_bits == 3:  # MPEG-1
+        side_info_size = 17 if channel_mode == 3 else 32  # mono vs stereo
+    else:  # MPEG-2/2.5
+        side_info_size = 9 if channel_mode == 3 else 17   # mono vs stereo
+
+    if protection_bit == 0:  # CRC present
+        side_info_size += 2
+
+    # Main data starts after: 4-byte header + side_info_size
+    main_data_offset = 4 + side_info_size
+
+    if len(frame_data) <= main_data_offset + 8:
+        return frame_data
+
+    # Check for VBR headers at the start of main data
+    main_data_start = main_data_offset
+
+    # Check for Xing/Info header
+    if frame_data[main_data_start:main_data_start+4] in [b'Xing', b'Info']:
+        # Xing header found - replace with silence/zeros
+        # Xing header is typically 120 bytes, but we'll be conservative
+        header_size = min(120, len(frame_data) - main_data_start)
+        return (frame_data[:main_data_start] +
+                b'\x00' * header_size +
+                frame_data[main_data_start + header_size:])
+
+    # Check for VBRI header (alternative VBR header format)
+    elif frame_data[main_data_start:main_data_start+4] == b'VBRI':
+        # VBRI header found - replace with silence
+        header_size = min(26, len(frame_data) - main_data_start)  # VBRI header is 26 bytes
+        return (frame_data[:main_data_start] +
+                b'\x00' * header_size +
+                frame_data[main_data_start + header_size:])
+
+    # No VBR header found, return original frame
+    return frame_data
 
 
 if __name__ == "__main__":
