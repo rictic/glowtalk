@@ -2,8 +2,8 @@
 
 import pathlib
 import pytest
-from glowtalk.mp3 import concat_mp3_files, print_frame_info, _analyze_mp3_frames
-
+from glowtalk.mp3 import concat_mp3_files, _analyze_mp3_frames
+import hashlib
 
 def test_mp3_analysis():
     """Test that MP3 analysis works correctly."""
@@ -50,6 +50,14 @@ def test_concat_mp3_files_success():
     assert frame_count == sum(expected_frames), "Should get all frames from all files"
     # Note: total_bytes will be less than file sizes due to ID3 tags being stripped
     assert total_bytes > 0, "Should have some data"
+    # Calculate the sha256 of the concatenated data for verification
+    sha256 = hashlib.sha256()
+    for frame_data in concat_mp3_files(test_files):
+        sha256.update(frame_data)
+    digest = sha256.hexdigest()
+    # Known good value, calculated previously.
+    expected_digest = "52d76bafd5405248cffcdf4e5517544218bee0730131704cce6cba3437ea7758"
+    assert digest == expected_digest, "Concatenated data hash should match expected"
 
 
 def test_concat_mp3_files_with_bit_reservoir_fails():
