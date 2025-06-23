@@ -1,11 +1,16 @@
-import soundfile as sf
-import subprocess
-from pathlib import Path
-from typing import List, Iterator
-import numpy as np
 import itertools
+import subprocess
 
-def stream_wav_chunks(wav_files: Iterator[Path], chunk_size: int = 8192) -> Iterator[np.ndarray]:
+from pathlib import Path
+from typing import Iterator
+
+import numpy as np
+import soundfile as sf
+
+
+def stream_wav_chunks(
+    wav_files: Iterator[Path], chunk_size: int = 8192
+) -> Iterator[np.ndarray]:
     """Stream audio data from WAV files in chunks."""
     for wav_file in wav_files:
         with sf.SoundFile(wav_file) as f:
@@ -14,6 +19,7 @@ def stream_wav_chunks(wav_files: Iterator[Path], chunk_size: int = 8192) -> Iter
                 if not len(chunk):
                     break
                 yield chunk
+
 
 def combine_wav_to_mp3(wav_files: Iterator[Path], output_mp3_path: Path) -> None:
     """Combine multiple WAV files into a single MP3 file using streaming."""
@@ -29,28 +35,31 @@ def combine_wav_to_mp3(wav_files: Iterator[Path], output_mp3_path: Path) -> None
 
     # Set up FFmpeg process for MP3 encoding
     cmd = [
-        'ffmpeg',
-        '-y',                    # Overwrite output file if it exists
-        '-f', 'f32le',          # Input format (32-bit float PCM)
-        '-ar', str(sample_rate), # Sample rate
-        '-ac', str(channels),    # Number of channels
-        '-i', '-',              # Read from stdin
-        '-c:a', 'libmp3lame',   # MP3 encoder
-        '-q:a', '2',            # Quality setting (2 is high quality, 0 is highest)
-        str(output_mp3_path)
+        "ffmpeg",
+        "-y",  # Overwrite output file if it exists
+        "-f",
+        "f32le",  # Input format (32-bit float PCM)
+        "-ar",
+        str(sample_rate),  # Sample rate
+        "-ac",
+        str(channels),  # Number of channels
+        "-i",
+        "-",  # Read from stdin
+        "-c:a",
+        "libmp3lame",  # MP3 encoder
+        "-q:a",
+        "2",  # Quality setting (2 is high quality, 0 is highest)
+        str(output_mp3_path),
     ]
 
     # Start FFmpeg process
     process = subprocess.Popen(
-        cmd,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
 
     try:
         # Stream chunks to FFmpeg
-        for chunk in stream_wav_chunks(itertools.chain([first_file],    wav_files)):
+        for chunk in stream_wav_chunks(itertools.chain([first_file], wav_files)):
             chunk = chunk.astype(np.float32)
             process.stdin.write(chunk.tobytes())
 
@@ -68,11 +77,11 @@ def combine_wav_to_mp3(wav_files: Iterator[Path], output_mp3_path: Path) -> None
         process.wait(timeout=5)  # Give it 5 seconds to shut down gracefully
         raise e
 
+
 if __name__ == "__main__":
+
     def gen():
         yield Path("outputs/output 42.wav")
         yield Path("outputs/output 43.wav")
-    combine_wav_to_mp3(
-        gen(),
-        Path("output.mp3")
-    )
+
+    combine_wav_to_mp3(gen(), Path("output.mp3"))

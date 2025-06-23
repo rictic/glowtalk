@@ -1,11 +1,15 @@
-from unittest.mock import Mock, patch
 import io
+
+from unittest.mock import patch
+
 import pytest
+
 from glowtalk.server import ProgressReporter
+
 
 @pytest.fixture
 def mock_time():
-    with patch('time.time') as mock:
+    with patch("time.time") as mock:
         # Return increasing timestamps (0, 10, 20, etc.) for each call
         mock.side_effect = [i * 10 for i in range(10)]
         yield mock
@@ -34,8 +38,8 @@ def test_third_report_shows_estimate(string_output, mock_time):
 
     # Report progress at different timestamps
     reporter.report(100)  # t=0
-    reporter.report(90)   # t=10
-    reporter.report(80)   # t=20
+    reporter.report(90)  # t=10
+    reporter.report(80)  # t=20
 
     # Calculate expected rate: 10 items per 10 seconds = 1 item/second
     # With 80 items remaining, should estimate 80 seconds
@@ -74,13 +78,14 @@ def test_accurate_time_estimate(string_output, mock_time):
     # Simulate processing 1 post every 3 seconds
     mock_time.side_effect = [i * 3 for i in range(10)]
     reporter.report(100)  # t=0
-    reporter.report(99)   # t=3
-    reporter.report(98)   # t=6
+    reporter.report(99)  # t=3
+    reporter.report(98)  # t=6
 
     output = string_output.getvalue()
     assert "98 posts remaining" in output
     # With 98 posts remaining at 1 post/3sec, should be ~294 seconds
     assert "0:04:54" in output  # 294 seconds formatted as timedelta
+
 
 def test_maintains_accurate_estimate_over_time(string_output, mock_time):
     reporter = ProgressReporter(outstream=string_output)
@@ -96,6 +101,7 @@ def test_maintains_accurate_estimate_over_time(string_output, mock_time):
     assert "722 posts remaining" in output
     # At 1 post/3sec with 722 remaining, should be ~2166 seconds = ~36 minutes
     assert "0:36:" in output
+
 
 def test_estimate_updates_with_changing_rates(string_output, mock_time):
     reporter = ProgressReporter(outstream=string_output, history_size=3)
@@ -117,4 +123,3 @@ def test_estimate_updates_with_changing_rates(string_output, mock_time):
 
     second_output = string_output.getvalue()
     assert "0:04:45" in second_output  # ~285 seconds
-

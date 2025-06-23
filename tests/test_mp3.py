@@ -8,15 +8,18 @@ Or run `pytest` in the `glowtalk` directory to run all tests.
 
 import hashlib
 import pathlib
+
 import pytest
-from glowtalk.mp3 import concat_mp3_files, Mp3Parser
+
+from glowtalk.mp3 import Mp3Parser, concat_mp3_files
+
 
 def test_mp3_analysis():
     """Test that MP3 analysis works correctly."""
     test_file = pathlib.Path("tests/testdata/test1.mp3")
     assert test_file.exists(), "Test file should exist"
 
-    with open(test_file, 'rb') as f:
+    with open(test_file, "rb") as f:
         parser = Mp3Parser(f)
         frames = list(parser)
 
@@ -24,7 +27,9 @@ def test_mp3_analysis():
     first_frame = frames[0]
     assert first_frame.mpeg_version == 2, "Test files are MPEG-2"
     assert first_frame.sample_rate == 24000, "Test files are 24kHz"
-    assert not any(frame.uses_bit_reservoir for frame in frames), "Test files should not use bit reservoir"
+    assert not any(frame.uses_bit_reservoir for frame in frames), (
+        "Test files should not use bit reservoir"
+    )
 
 
 def test_concat_mp3_files_success():
@@ -32,7 +37,7 @@ def test_concat_mp3_files_success():
     test_files = [
         pathlib.Path("tests/testdata/test1.mp3"),
         pathlib.Path("tests/testdata/test2.mp3"),
-        pathlib.Path("tests/testdata/test3.mp3")
+        pathlib.Path("tests/testdata/test3.mp3"),
     ]
 
     # Verify all test files exist
@@ -43,10 +48,12 @@ def test_concat_mp3_files_success():
     expected_frames = []
     expected_bytes = 0
     for f in test_files:
-        with open(f, 'rb') as file:
+        with open(f, "rb") as file:
             parser = Mp3Parser(file)
             frames = list(parser)
-            assert not any(frame.uses_bit_reservoir for frame in frames), f"Test file {f} should not use bit reservoir"
+            assert not any(frame.uses_bit_reservoir for frame in frames), (
+                f"Test file {f} should not use bit reservoir"
+            )
             expected_frames.append(len(frames))
             expected_bytes += f.stat().st_size
 
@@ -58,7 +65,9 @@ def test_concat_mp3_files_success():
         total_bytes += len(frame_data)
 
     # Frame count may be less than sum of all frames due to LAME padding removal
-    assert frame_count <= sum(expected_frames), "Concatenated frames should be less than or equal to all frames"
+    assert frame_count <= sum(expected_frames), (
+        "Concatenated frames should be less than or equal to all frames"
+    )
     assert frame_count > 0, "Should get some frames from concatenation"
     # Note: total_bytes will be less than file sizes due to ID3 tags being stripped
     assert total_bytes > 0, "Should have some data"
@@ -79,7 +88,7 @@ def test_concat_mp3_files_with_bit_reservoir_fails():
     assert bit_reservoir_file.exists(), "Test file with bit reservoir should exist"
 
     # Verify it uses bit reservoir
-    with open(bit_reservoir_file, 'rb') as f:
+    with open(bit_reservoir_file, "rb") as f:
         parser = Mp3Parser(f)
         frames = list(parser)
         uses_reservoir = any(frame.uses_bit_reservoir for frame in frames)
@@ -98,14 +107,14 @@ def test_concat_mixed_files_fails():
     assert test_file_bad.exists(), "Bad test file should exist"
 
     # Verify the good file doesn't use bit reservoir
-    with open(test_file_good, 'rb') as f:
+    with open(test_file_good, "rb") as f:
         parser = Mp3Parser(f)
         frames = list(parser)
         uses_reservoir_good = any(frame.uses_bit_reservoir for frame in frames)
     assert not uses_reservoir_good, "Good test file should not use bit reservoir"
 
     # Verify the bad file uses bit reservoir
-    with open(test_file_bad, 'rb') as f:
+    with open(test_file_bad, "rb") as f:
         parser = Mp3Parser(f)
         frames = list(parser)
         uses_reservoir_bad = any(frame.uses_bit_reservoir for frame in frames)
@@ -120,7 +129,7 @@ def test_frame_extraction_yields_valid_frames():
     test_file = pathlib.Path("tests/testdata/test1.mp3")
     assert test_file.exists(), "Test file should exist"
 
-    with open(test_file, 'rb') as f:
+    with open(test_file, "rb") as f:
         parser = Mp3Parser(f)
         frames = list(parser)
 
@@ -130,7 +139,9 @@ def test_frame_extraction_yields_valid_frames():
     for i, frame in enumerate(frames):
         assert len(frame.data) > 4, f"Frame {i} should have data"
         assert frame.data[0] == 0xFF, f"Frame {i} should start with sync byte"
-        assert (frame.data[1] & 0xE0) == 0xE0, f"Frame {i} should have valid sync pattern"
+        assert (frame.data[1] & 0xE0) == 0xE0, (
+            f"Frame {i} should have valid sync pattern"
+        )
 
 
 def test_vbr_header_stripping():
@@ -139,22 +150,28 @@ def test_vbr_header_stripping():
     assert test_file.exists(), "Test file should exist"
 
     # Verify the original file has a VBR header
-    with open(test_file, 'rb') as f:
+    with open(test_file, "rb") as f:
         parser = Mp3Parser(f)
         frames = list(parser)
 
     first_frame = frames[0]
     assert first_frame.has_vbr_header, "Test file should have VBR header"
-    assert b'Xing' in first_frame.data, "Original frame should contain Xing header"
+    assert b"Xing" in first_frame.data, "Original frame should contain Xing header"
 
     # Test concatenation strips the VBR header
     concatenated_frames = list(concat_mp3_files([test_file]))
     assert len(concatenated_frames) > 0, "Should get frames from concatenation"
 
     first_concatenated_frame = concatenated_frames[0]
-    assert b'Xing' not in first_concatenated_frame, "Concatenated frame should not contain Xing header"
-    assert b'Info' not in first_concatenated_frame, "Concatenated frame should not contain Info header"
-    assert b'VBRI' not in first_concatenated_frame, "Concatenated frame should not contain VBRI header"
+    assert b"Xing" not in first_concatenated_frame, (
+        "Concatenated frame should not contain Xing header"
+    )
+    assert b"Info" not in first_concatenated_frame, (
+        "Concatenated frame should not contain Info header"
+    )
+    assert b"VBRI" not in first_concatenated_frame, (
+        "Concatenated frame should not contain VBRI header"
+    )
 
 
 def test_compatibility_checking():
@@ -162,22 +179,23 @@ def test_compatibility_checking():
     # Test with compatible files (should work)
     compatible_files = [
         pathlib.Path("tests/testdata/test1.mp3"),
-        pathlib.Path("tests/testdata/test2.mp3")
+        pathlib.Path("tests/testdata/test2.mp3"),
     ]
 
     # This should work without issues
     concatenated_frames = list(concat_mp3_files(compatible_files))
-    assert len(concatenated_frames) > 0, "Should successfully concatenate compatible files"
+    assert len(concatenated_frames) > 0, (
+        "Should successfully concatenate compatible files"
+    )
 
     # Test with ID3-tagged file that has compatible encoding
     id3_file = pathlib.Path("tests/testdata/test_24khz_with_id3.mp3")
     if id3_file.exists():
-        mixed_files = [
-            pathlib.Path("tests/testdata/test1.mp3"),
-            id3_file
-        ]
+        mixed_files = [pathlib.Path("tests/testdata/test1.mp3"), id3_file]
         concatenated_frames = list(concat_mp3_files(mixed_files))
-        assert len(concatenated_frames) > 0, "Should concatenate compatible files even with ID3 tags"
+        assert len(concatenated_frames) > 0, (
+            "Should concatenate compatible files even with ID3 tags"
+        )
 
 
 def test_incompatible_sample_rates():
@@ -201,7 +219,9 @@ def test_id3_tag_handling():
 
     # Should concatenate successfully despite having ID3 tags
     concatenated_frames = list(concat_mp3_files([test_file_with_id3]))
-    assert len(concatenated_frames) > 0, "Should successfully handle files with ID3 tags"
+    assert len(concatenated_frames) > 0, (
+        "Should successfully handle files with ID3 tags"
+    )
 
 
 def test_lame_padding_frame_stripping():
@@ -210,7 +230,7 @@ def test_lame_padding_frame_stripping():
     assert test_file.exists(), "Test file should exist"
 
     # Parse frames directly to see original count including padding
-    with open(test_file, 'rb') as f:
+    with open(test_file, "rb") as f:
         parser = Mp3Parser(f)
         all_frames = list(parser)
 
@@ -219,11 +239,13 @@ def test_lame_padding_frame_stripping():
 
     # Concatenated frames should be less than or equal to all frames
     # (due to potential LAME padding frame removal)
-    assert len(concatenated_frames) <= len(all_frames), "Concatenation should strip padding frames"
+    assert len(concatenated_frames) <= len(all_frames), (
+        "Concatenation should strip padding frames"
+    )
 
     # Verify no concatenated frames are tiny LAME padding frames
     for frame_data in concatenated_frames:
-        if len(frame_data) <= 32 and b'LAME' in frame_data:
+        if len(frame_data) <= 32 and b"LAME" in frame_data:
             pytest.fail("Concatenated output should not contain LAME padding frames")
 
 
@@ -247,4 +269,6 @@ def test_stereo_file_compatibility():
 
     # Should work since it's encoded without bit reservoir
     concatenated_frames = list(concat_mp3_files([stereo_file]))
-    assert len(concatenated_frames) > 0, "Should successfully concatenate stereo files without bit reservoir"
+    assert len(concatenated_frames) > 0, (
+        "Should successfully concatenate stereo files without bit reservoir"
+    )

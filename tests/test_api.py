@@ -1,19 +1,13 @@
-import pytest
-import httpx
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-import os
-import json
-import time
 import asyncio
+import json
+
+import httpx
+import pytest
 
 from glowtalk import models
-from glowtalk.api import app, get_db
-from glowtalk.models import Base, OriginalWork, Speaker, SpeakerModel, WorkQueue
-from conftest import mock_glowfic_scraper, mock_speaker_model, test_server, test_cwd, db_session, client
-from starlette.testclient import TestClient as StarletteTestClient
+from glowtalk.api import app
+from glowtalk.models import OriginalWork, Speaker, SpeakerModel
+
 
 @pytest.fixture
 def sample_work(db_session):
@@ -23,20 +17,18 @@ def sample_work(db_session):
     db_session.commit()
     return work
 
+
 @pytest.fixture
 def sample_speaker(db_session, test_cwd):
     """Create a sample speaker with a mock reference file"""
     ref_path = test_cwd / "references" / "test_speaker.wav"
     ref_path.write_bytes(b"fake audio data")
 
-    speaker = Speaker.get_or_create(
-        db_session,
-        "test_speaker",
-        SpeakerModel.XTTS_v2
-    )
+    speaker = Speaker.get_or_create(db_session, "test_speaker", SpeakerModel.XTTS_v2)
     db_session.add(speaker)
     db_session.commit()
     return speaker
+
 
 def test_get_work(client, sample_work):
     """Test getting an existing work"""
@@ -45,19 +37,18 @@ def test_get_work(client, sample_work):
     data = response.json()
     assert data["url"] == sample_work.url
 
+
 def test_get_nonexistent_work(client):
     """Test getting a work that doesn't exist"""
     response = client.get("/api/works/99999")
     assert response.status_code == 404
 
+
 def test_create_audiobook(client, sample_work, sample_speaker):
     """Test creating a new audiobook"""
     response = client.post(
         f"/api/works/{sample_work.id}/audiobooks",
-        json={
-            "description": "Test audiobook",
-            "default_speaker_id": sample_speaker.id
-        }
+        json={"description": "Test audiobook", "default_speaker_id": sample_speaker.id},
     )
     assert response.status_code == 200
     data = response.json()
@@ -70,11 +61,12 @@ def test_create_audiobook(client, sample_work, sample_speaker):
     assert "id" in data
     assert "created_at" in data
 
+
 def test_create_audiobook_minimal(client, sample_work):
     """Test creating an audiobook with minimal data"""
     response = client.post(
         f"/api/works/{sample_work.id}/audiobooks",
-        json={}  # No data required
+        json={},  # No data required
     )
     assert response.status_code == 200
     data = response.json()
@@ -82,33 +74,35 @@ def test_create_audiobook_minimal(client, sample_work):
     assert data["default_speaker_id"] is None
     assert data["original_work_id"] == sample_work.id
 
+
 def test_create_audiobook_invalid_speaker(client, sample_work):
     """Test creating an audiobook with non-existent speaker"""
     response = client.post(
         f"/api/works/{sample_work.id}/audiobooks",
         json={
             "description": "Test audiobook",
-            "default_speaker_id": 99999  # Non-existent speaker
-        }
+            "default_speaker_id": 99999,  # Non-existent speaker
+        },
     )
     assert response.status_code == 404
     assert "Speaker not found" in response.json()["detail"]
 
+
 def test_create_audiobook_invalid_work(client):
     """Test creating an audiobook for non-existent work"""
     response = client.post(
-        f"/api/works/99999/audiobooks",
-        json={"description": "Test audiobook"}
+        "/api/works/99999/audiobooks", json={"description": "Test audiobook"}
     )
     assert response.status_code == 404
     assert "Work not found" in response.json()["detail"]
+
 
 def test_set_character_voice(client, sample_work, sample_speaker, db_session):
     """Test setting a character voice for an audiobook"""
     # First create an audiobook
     response = client.post(
         f"/api/works/{sample_work.id}/audiobooks",
-        json={"description": "Test audiobook"}
+        json={"description": "Test audiobook"},
     )
     audiobook_id = response.json()["id"]
 
@@ -118,13 +112,14 @@ def test_set_character_voice(client, sample_work, sample_speaker, db_session):
         json={
             "character_name": "Test Character",
             "voice_name": "test_speaker",
-            "model": None
-        }
+            "model": None,
+        },
     )
     assert response.status_code == 200
     data = response.json()
     assert data["character_name"] == "Test Character"
     assert data["speaker_id"] == sample_speaker.id
+
 
 def test_queue_status(client):
     """Test getting queue status"""
@@ -136,15 +131,13 @@ def test_queue_status(client):
     assert "completed" in data
     assert "failed" in data
 
+
 def test_generate_audiobook(client, sample_work, sample_speaker, db_session):
     """Test starting audiobook generation"""
     # Create an audiobook
     response = client.post(
         f"/api/works/{sample_work.id}/audiobooks",
-        json={
-            "description": "Test audiobook",
-            "default_speaker_id": sample_speaker.id
-        }
+        json={"description": "Test audiobook", "default_speaker_id": sample_speaker.id},
     )
     audiobook_id = response.json()["id"]
 
@@ -154,18 +147,14 @@ def test_generate_audiobook(client, sample_work, sample_speaker, db_session):
     data = response.json()
     assert "queued_items" in data
 
+
 def test_create_speaker(client, test_cwd):
     """Test creating a new speaker"""
 
     response = client.post(
         "/api/speakers",
-        data={
-            "name": "test_speaker",
-            "model": "XTTS_v2"
-        },
-        files={
-            "reference_audio": ("new_speaker.wav", b"test audio data")
-        }
+        data={"name": "test_speaker", "model": "XTTS_v2"},
+        files={"reference_audio": ("new_speaker.wav", b"test audio data")},
     )
 
     if response.status_code != 200:
@@ -175,52 +164,40 @@ def test_create_speaker(client, test_cwd):
     assert "id" in data
     assert data["model"] == "tts_models/multilingual/multi-dataset/xtts_v2"
 
+
 def test_create_speaker_missing_reference(client):
     """Test creating a speaker with missing reference file"""
     response = client.post(
-        "/api/speakers",
-        json={
-            "name": "nonexistent_speaker",
-            "model": "XTTS_v2"
-        }
+        "/api/speakers", json={"name": "nonexistent_speaker", "model": "XTTS_v2"}
     )
     assert response.status_code == 422
     assert "Field required" in response.text
 
+
 @pytest.mark.asyncio
-async def test_audiobook_generation_progress(client, db_session, mock_glowfic_scraper,
-                                     mock_speaker_model, test_cwd):
+async def test_audiobook_generation_progress(
+    client, db_session, mock_glowfic_scraper, mock_speaker_model, test_cwd
+):
     """Test SSE endpoint for monitoring audiobook generation progress"""
     pytest.skip("skipping")
     # First create a speaker and audiobook using the FastAPI test client
     response = client.post(
         "/api/speakers",
-        data={
-            "name": "test_speaker",
-            "model": "XTTS_v2"
-        },
-        files={
-            "reference_audio": ("test_speaker.wav", b"test audio data")
-        }
+        data={"name": "test_speaker", "model": "XTTS_v2"},
+        files={"reference_audio": ("test_speaker.wav", b"test audio data")},
     )
     assert response.status_code == 200
     speaker_id = response.json()["id"]
 
     # Create a work by scraping our mock glowfic
-    response = client.post(
-        "/api/works/scrape_glowfic",
-        json={"post_id": 1234}
-    )
+    response = client.post("/api/works/scrape_glowfic", json={"post_id": 1234})
     assert response.status_code == 200
     work_id = response.json()["id"]
 
     # Create an audiobook with our test speaker as default
     response = client.post(
         f"/api/works/{work_id}/audiobooks",
-        json={
-            "description": "Test audiobook",
-            "default_speaker_id": speaker_id
-        }
+        json={"description": "Test audiobook", "default_speaker_id": speaker_id},
     )
     assert response.status_code == 200
     audiobook_id = response.json()["id"]
@@ -232,10 +209,11 @@ async def test_audiobook_generation_progress(client, db_session, mock_glowfic_sc
     assert queued_items > 0
 
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
-        base_url="http://test"
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        async with client.stream("GET", f"/api/audiobooks/{audiobook_id}/generation_progress") as response:
+        async with client.stream(
+            "GET", f"/api/audiobooks/{audiobook_id}/generation_progress"
+        ) as response:
             assert response.status_code == 200
             assert response.headers["content-type"] == "text/event-stream"
             return
@@ -248,8 +226,11 @@ async def test_audiobook_generation_progress(client, db_session, mock_glowfic_sc
             assert first_event["completed"] == 0
 
             # Complete all work items
-            work_items = db_session.query(models.WorkQueue)\
-            .filter_by(audiobook_id=audiobook_id).all()
+            work_items = (
+                db_session.query(models.WorkQueue)
+                .filter_by(audiobook_id=audiobook_id)
+                .all()
+            )
             for item in work_items:
                 item.status = "completed"
             db_session.commit()
@@ -261,8 +242,11 @@ async def test_audiobook_generation_progress(client, db_session, mock_glowfic_sc
             assert final_event["in_progress"] == 0
             assert final_event["completed"] == queued_items
 
-from typing import Iterator, AsyncIterator
+
+from typing import AsyncIterator, Iterator
+
 import attr
+
 
 class SSEMessageParser:
     def __init__(self, line_iterator: Iterator[str]):
@@ -270,7 +254,7 @@ class SSEMessageParser:
         self._current_message = []
 
     @classmethod
-    def from_response(cls, response) -> 'SSEMessageParser':
+    def from_response(cls, response) -> "SSEMessageParser":
         return cls(response.iter_lines())
 
     def __iter__(self):
@@ -280,24 +264,25 @@ class SSEMessageParser:
         for line in self._line_iterator:
             # Convert bytes to string if needed
             if isinstance(line, bytes):
-                line = line.decode('utf-8')
+                line = line.decode("utf-8")
 
             # just look for the data: line
             if line.startswith("data: "):
                 self._current_message.append(line[6:])
             elif line == "":  # Empty line marks end of message
                 if self._current_message:  # Only yield if we have collected lines
-                    message = '\n'.join(self._current_message)
+                    message = "\n".join(self._current_message)
                     self._current_message = []
                     return message
 
         # Handle final message if exists
         if self._current_message:
-            message = '\n'.join(self._current_message)
+            message = "\n".join(self._current_message)
             self._current_message = []
             return message
 
         raise StopIteration
+
 
 @attr.s(auto_attribs=True)
 class AsyncSSEMessageParser:
@@ -305,7 +290,7 @@ class AsyncSSEMessageParser:
     _current_message: list[str] = attr.Factory(list)
 
     @classmethod
-    def from_response(cls, response) -> 'AsyncSSEMessageParser':
+    def from_response(cls, response) -> "AsyncSSEMessageParser":
         return cls(response.aiter_lines())
 
     def __aiter__(self):
@@ -318,24 +303,24 @@ class AsyncSSEMessageParser:
                 self._current_message.append(line[6:])
             elif line == "":  # Empty line marks end of message
                 if self._current_message:  # Only yield if we have collected lines
-                    message = '\n'.join(self._current_message)
+                    message = "\n".join(self._current_message)
                     self._current_message = []
                     return message
 
         # Handle final message if exists
         if self._current_message:
-            message = '\n'.join(self._current_message)
+            message = "\n".join(self._current_message)
             self._current_message = []
             return message
 
         raise StopAsyncIteration
 
+
 @pytest.mark.asyncio
 async def test_stream_ok():
     """Test SSE endpoint to verify streaming is working with event waiting"""
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
-        base_url="http://test"
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
         # Create a task to handle the streaming response
         async def stream_handler():
@@ -369,11 +354,12 @@ async def test_stream_ok():
 
         assert expected_lines == []
 
+
 @pytest.mark.asyncio
 async def test_ok_event(test_server):
     """Test that the ok_event mechanism works correctly"""
     pytest.skip("skipping")
-    async with test_server.stream('GET', "/api/stream_ok") as response:
+    async with test_server.stream("GET", "/api/stream_ok") as response:
         assert response.status_code == 200
         assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
         messages = AsyncSSEMessageParser.from_response(response)
@@ -391,7 +377,7 @@ async def test_ok_event(test_server):
         assert wake_response.status_code == 200
 
         # Can get again
-        assert "ok" == await asyncio.wait_for(anext(messages), timeout=0.1)
+        assert await asyncio.wait_for(anext(messages), timeout=0.1) == "ok"
 
         # Try to take another without waking, times out.
         with pytest.raises(asyncio.TimeoutError):

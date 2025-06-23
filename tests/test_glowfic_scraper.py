@@ -1,9 +1,12 @@
 import pytest
+
 from bs4 import BeautifulSoup
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from glowtalk.models import Base, ContentPiece
+from sqlalchemy.orm import Session, sessionmaker
+
 from glowtalk.glowfic_scraper import create_from_glowfic
+from glowtalk.models import Base, ContentPiece
+
 
 @pytest.fixture
 def db_session():
@@ -14,6 +17,7 @@ def db_session():
     session = SessionLocal()
     yield session
     session.close()
+
 
 @pytest.fixture
 def mock_glowfic_html():
@@ -51,9 +55,10 @@ def mock_glowfic_html():
     </div>
     """
 
+
 def test_create_from_glowfic(db_session: Session, mock_glowfic_html: str):
     # Create BeautifulSoup object from mock HTML
-    soup = BeautifulSoup(mock_glowfic_html, 'html.parser')
+    soup = BeautifulSoup(mock_glowfic_html, "html.parser")
 
     # Test URL
     test_url = "https://glowfic.com/posts/12345"
@@ -90,9 +95,8 @@ def test_create_from_glowfic(db_session: Session, mock_glowfic_html: str):
         "Alice (AliceScreen) (by AuthorOne):",
         "Hello there!",
         "This is the first post.",
-        "This is a second paragraph."
+        "This is a second paragraph.",
     ]
-
 
     second_content = second_part.content_pieces
     assert len(second_content) > 0
@@ -101,7 +105,7 @@ def test_create_from_glowfic(db_session: Session, mock_glowfic_html: str):
         "Bob (BobScreen) (by AuthorTwo):",
         "Hi Alice!",
         "This is a reply.",
-        "With formatted text."
+        "With formatted text.",
     ]
 
     # we should have eight content pieces that should be voiced

@@ -1,18 +1,20 @@
+import multiprocessing
+import os
+import signal
+import socket
+
+import httpx
 import pytest
 import uvicorn
-import multiprocessing
-import socket
-import httpx
-from unittest.mock import MagicMock
-from glowtalk import models, glowfic_scraper
-import os
-from sqlalchemy.orm import sessionmaker
+
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+
+from glowtalk import glowfic_scraper, models
 from glowtalk.api import app, get_sessionmaker
 from glowtalk.models import Base
-from fastapi.testclient import TestClient
-import signal
 
 # Mock data for our fake glowfic scraper
 MOCK_GLOWFIC_HTML = """
@@ -55,18 +57,21 @@ SECOND_MOCK_GLOWFIC_HTML = """
 </div>
 """
 
+
 @pytest.fixture
 def mock_speaker_model(monkeypatch):
     """Mock the speaker model to avoid actual TTS generation"""
+
     class MockSpeakerModel:
         def __init__(self, model: models.SpeakerModel):
             self.model = model
 
         def speak(self, text, speaker_wav, output_path):
-            output_path.write_bytes( b"generated audio data for " + bytes(text, "utf8"))
+            output_path.write_bytes(b"generated audio data for " + bytes(text, "utf8"))
             return output_path
 
     monkeypatch.setattr("glowtalk.speak.Speaker", MockSpeakerModel)
+
 
 @pytest.fixture
 def mock_glowfic_scraper(monkeypatch):
@@ -75,13 +80,14 @@ def mock_glowfic_scraper(monkeypatch):
 
     def mock_scrape(post_id, db):
         if post_id == 1234:
-            soup = BeautifulSoup(MOCK_GLOWFIC_HTML, 'html.parser')
+            soup = BeautifulSoup(MOCK_GLOWFIC_HTML, "html.parser")
         else:
-            soup = BeautifulSoup(SECOND_MOCK_GLOWFIC_HTML, 'html.parser')
+            soup = BeautifulSoup(SECOND_MOCK_GLOWFIC_HTML, "html.parser")
         url = f"https://glowfic.com/posts/{post_id}"
         return glowfic_scraper.create_from_glowfic(url, db, soup)
 
     monkeypatch.setattr("glowtalk.glowfic_scraper.scrape_post", mock_scrape)
+
 
 @pytest.fixture
 def test_cwd(tmp_path):
@@ -92,6 +98,7 @@ def test_cwd(tmp_path):
     os.chdir(tmp_path)
     yield tmp_path
     os.chdir(original_cwd)
+
 
 @pytest.fixture
 def db_sessionmaker(test_cwd):
@@ -118,6 +125,7 @@ def db_sessionmaker(test_cwd):
         Base.metadata.drop_all(bind=engine)
         app.dependency_overrides.clear()
 
+
 @pytest.fixture
 def db_session(db_sessionmaker):
     """Create a test database session"""
@@ -127,10 +135,12 @@ def db_session(db_sessionmaker):
     finally:
         session.close()
 
+
 @pytest.fixture
 def client(db_sessionmaker):
     """Create a test client with the test database"""
     return TestClient(app)
+
 
 @pytest.fixture
 def mock_combine_wav_to_mp3(monkeypatch):
@@ -153,19 +163,22 @@ def mock_combine_wav_to_mp3(monkeypatch):
     monkeypatch.setattr("glowtalk.convert.combine_wav_to_mp3", mock_combine)
     return lambda: call_count
 
+
 def find_free_port():
     """Find and return a free port number"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('', 0))
+        s.bind(("", 0))
         s.listen(1)
         port = s.getsockname()[1]
     return port
+
 
 def run_server(host="127.0.0.1", port=None, cwd=None):
     """Run the FastAPI app using uvicorn in a separate process"""
     if port is None:
         port = find_free_port()
     uvicorn.run(app, host=host, port=port)
+
 
 @pytest.fixture
 async def test_server(test_cwd):
@@ -178,6 +191,7 @@ async def test_server(test_cwd):
     def signal_handler(signal, frame):
         server_process.terminate()
         raise KeyboardInterrupt
+
     signal.signal(signal.SIGINT, signal_handler)
 
     client = httpx.AsyncClient(base_url=f"http://127.0.0.1:{port}")
@@ -195,6 +209,3 @@ async def test_server(test_cwd):
     # Cleanup
     await client.aclose()
     server_process.terminate()
-
-
-

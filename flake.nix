@@ -78,6 +78,7 @@
             pytest-httpx
             pytest-watch
             pytest-asyncio
+            ruff
           ]
           ++ [
             # Custom packages

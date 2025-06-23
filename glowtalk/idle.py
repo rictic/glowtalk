@@ -1,6 +1,8 @@
 import platform
 import time
+
 from abc import ABC, abstractmethod
+
 
 class IdleChecker(ABC):
     @abstractmethod
@@ -8,30 +10,32 @@ class IdleChecker(ABC):
         """Returns the number of seconds the system has been idle."""
         pass
 
+
 class WindowsIdleChecker(IdleChecker):
     def __init__(self):
         import ctypes
+
         from ctypes import Structure, wintypes
 
         class LASTINPUTINFO(Structure):
-            _fields_ = [
-                ('cbSize', wintypes.UINT),
-                ('dwTime', wintypes.DWORD)
-            ]
+            _fields_ = [("cbSize", wintypes.UINT), ("dwTime", wintypes.DWORD)]
 
         self.lastInputInfo = LASTINPUTINFO()
         self.lastInputInfo.cbSize = ctypes.sizeof(self.lastInputInfo)
         self.ctypes = ctypes
 
     def get_idle_time(self):
-        self.ctypes.windll.user32.GetLastInputInfo(self.ctypes.byref(self.lastInputInfo))
+        self.ctypes.windll.user32.GetLastInputInfo(
+            self.ctypes.byref(self.lastInputInfo)
+        )
         current_tick = self.ctypes.windll.kernel32.GetTickCount()
         return (current_tick - self.lastInputInfo.dwTime) / 1000.0
+
 
 class LinuxIdleChecker(IdleChecker):
     def __init__(self):
         try:
-            from Xlib import display, X
+            from Xlib import X, display
             from Xlib.ext import screensaver
         except ImportError:
             raise ImportError("Please install python-xlib: pip install python-xlib")
@@ -46,13 +50,14 @@ class LinuxIdleChecker(IdleChecker):
         info = self.screensaver.query_info(self.display.screen().root)
         return info.idle / 1000.0  # Convert from ms to seconds
 
+
 class MacIdleChecker(IdleChecker):
     def __init__(self):
         try:
             from Quartz import (
                 CGEventSourceSecondsSinceLastEventType,
-                kCGEventSourceStateHIDSystemState,
                 kCGAnyInputEventType,
+                kCGEventSourceStateHIDSystemState,
             )
         except ImportError:
             raise ImportError(
@@ -65,10 +70,8 @@ class MacIdleChecker(IdleChecker):
         self.any_input = kCGAnyInputEventType
 
     def get_idle_time(self):
-        return self.get_idle_time_since_last_event(
-            self.system_state,
-            self.any_input
-        )
+        return self.get_idle_time_since_last_event(self.system_state, self.any_input)
+
 
 def create_idle_checker() -> IdleChecker:
     """Factory function to create the appropriate idle checker for the current platform."""
@@ -81,6 +84,7 @@ def create_idle_checker() -> IdleChecker:
         return MacIdleChecker()
     else:
         raise NotImplementedError(f"System {system} is not supported")
+
 
 def run_when_idle(task_function, idle_threshold_seconds=300):
     """
@@ -125,8 +129,10 @@ def run_when_idle(task_function, idle_threshold_seconds=300):
             print(f"Error: {e}")
             time.sleep(5)  # Wait a bit before retrying
 
+
 # Example usage
 if __name__ == "__main__":
+
     def example_task():
         print("work work work work work...")
         time.sleep(1)

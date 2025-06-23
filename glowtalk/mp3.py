@@ -2,10 +2,11 @@
 
 import pathlib
 import struct
-from typing import Iterable, NamedTuple, BinaryIO
+
+from typing import BinaryIO, Generator, NamedTuple, Sequence
 
 
-def concat_mp3_files(input_paths: Iterable[pathlib.Path]) -> Iterable[bytes]:
+def concat_mp3_files(input_paths: Sequence[pathlib.Path]) -> Generator[bytes]:
     """Concatenate the given mp3 files.
 
     Reads each input path in turn, and yields `bytes` for the frames found.
@@ -30,12 +31,14 @@ def concat_mp3_files(input_paths: Iterable[pathlib.Path]) -> Iterable[bytes]:
     first_frame = True
 
     for path in input_paths:
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             parser = Mp3Parser(f)
 
             for frame in parser:
                 if frame.uses_bit_reservoir:
-                    raise ValueError(f"File {path} uses bit reservoir and cannot be concatenated")
+                    raise ValueError(
+                        f"File {path} uses bit reservoir and cannot be concatenated"
+                    )
 
                 # Check compatibility with previous files
                 if first_frame:
@@ -45,15 +48,22 @@ def concat_mp3_files(input_paths: Iterable[pathlib.Path]) -> Iterable[bytes]:
                     first_frame = False
                 else:
                     if frame.mpeg_version != expected_mpeg_version:
-                        raise ValueError(f"File {path} has MPEG version {frame.mpeg_version}, "
-                                       f"expected {expected_mpeg_version}")
+                        raise ValueError(
+                            f"File {path} has MPEG version {frame.mpeg_version}, "
+                            f"expected {expected_mpeg_version}"
+                        )
                     if frame.sample_rate != expected_sample_rate:
-                        raise ValueError(f"File {path} has sample rate {frame.sample_rate} Hz, "
-                                       f"expected {expected_sample_rate} Hz")
+                        raise ValueError(
+                            f"File {path} has sample rate {frame.sample_rate} Hz, "
+                            f"expected {expected_sample_rate} Hz"
+                        )
                     if frame.channel_mode != expected_channel_mode:
                         import warnings
-                        warnings.warn(f"File {path} has different channel mode {frame.channel_mode}, "
-                                    f"expected {expected_channel_mode}. Concatenation may cause audio artifacts.")
+
+                        warnings.warn(
+                            f"File {path} has different channel mode {frame.channel_mode}, "
+                            f"expected {expected_channel_mode}. Concatenation may cause audio artifacts."
+                        )
 
                 frame_data = frame.data
 
@@ -72,7 +82,7 @@ def concat_mp3_files(input_paths: Iterable[pathlib.Path]) -> Iterable[bytes]:
 def print_frame_info(path: pathlib.Path) -> None:
     """Print information about the MP3 frames in the given file."""
     try:
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             parser = Mp3Parser(f)
 
             frames = list(parser)
@@ -103,10 +113,10 @@ def print_frame_info(path: pathlib.Path) -> None:
                 avg_bitrate = sum(bitrates) / len(bitrates) * 1000  # Convert to bps
 
                 if min_bitrate == max_bitrate:
-                    print(f"Bitrate mode: Constant (CBR)")
+                    print("Bitrate mode: Constant (CBR)")
                     print(f"Bitrate: {min_bitrate:.0f} bps")
                 else:
-                    print(f"Bitrate mode: Variable (VBR)")
+                    print("Bitrate mode: Variable (VBR)")
                     print(f"Bitrate range: {min_bitrate:.0f} - {max_bitrate:.0f} bps")
                     print(f"Average bitrate: {avg_bitrate:.0f} bps")
             else:
@@ -135,7 +145,7 @@ def _strip_vbr_header(frame_data: bytes) -> bytes:
     if version_bits == 3:  # MPEG-1
         side_info_size = 17 if channel_mode == 3 else 32  # mono vs stereo
     else:  # MPEG-2/2.5
-        side_info_size = 9 if channel_mode == 3 else 17   # mono vs stereo
+        side_info_size = 9 if channel_mode == 3 else 17  # mono vs stereo
 
     if protection_bit == 0:  # CRC present
         side_info_size += 2
@@ -150,29 +160,37 @@ def _strip_vbr_header(frame_data: bytes) -> bytes:
     main_data_start = main_data_offset
 
     # Check for Xing/Info header
-    if frame_data[main_data_start:main_data_start+4] in [b'Xing', b'Info']:
+    if frame_data[main_data_start : main_data_start + 4] in [b"Xing", b"Info"]:
         # Xing header found - replace with silence/zeros
         # Xing header is typically 120 bytes
         header_size = min(120, len(frame_data) - main_data_start)
 
         # Check if LAME header follows immediately after Xing
         lame_offset = main_data_start + 120
-        if (lame_offset + 4 <= len(frame_data) and
-            frame_data[lame_offset:lame_offset+4] == b'LAME'):
+        if (
+            lame_offset + 4 <= len(frame_data)
+            and frame_data[lame_offset : lame_offset + 4] == b"LAME"
+        ):
             # LAME header is 36 bytes, include it in stripping
             header_size = min(156, len(frame_data) - main_data_start)  # 120 + 36
 
-        return (frame_data[:main_data_start] +
-                b'\x00' * header_size +
-                frame_data[main_data_start + header_size:])
+        return (
+            frame_data[:main_data_start]
+            + b"\x00" * header_size
+            + frame_data[main_data_start + header_size :]
+        )
 
     # Check for VBRI header (alternative VBR header format)
-    elif frame_data[main_data_start:main_data_start+4] == b'VBRI':
+    elif frame_data[main_data_start : main_data_start + 4] == b"VBRI":
         # VBRI header found - replace with silence
-        header_size = min(26, len(frame_data) - main_data_start)  # VBRI header is 26 bytes
-        return (frame_data[:main_data_start] +
-                b'\x00' * header_size +
-                frame_data[main_data_start + header_size:])
+        header_size = min(
+            26, len(frame_data) - main_data_start
+        )  # VBRI header is 26 bytes
+        return (
+            frame_data[:main_data_start]
+            + b"\x00" * header_size
+            + frame_data[main_data_start + header_size :]
+        )
 
     # No VBR header found, return original frame
     return frame_data
@@ -187,14 +205,14 @@ def _strip_lame_padding_frame(frame_data: bytes) -> bool:
     Returns True if this frame should be stripped during concatenation.
     """
     # Look for LAME signature in various positions within the frame
-    if b'LAME3.100' in frame_data:
+    if b"LAME3.100" in frame_data:
         # Check if this is a very short frame (likely padding)
         if len(frame_data) <= 32:
             return True
 
         # Check if most of the frame is zeros or LAME signature
         non_header_data = frame_data[4:]  # Skip MP3 header
-        lame_content = non_header_data.count(b'LAME3.100') * 9  # Length of "LAME3.100"
+        lame_content = non_header_data.count(b"LAME3.100") * 9  # Length of "LAME3.100"
         zero_content = non_header_data.count(0)
 
         # If more than 80% of the frame is LAME signatures or zeros, it's likely padding
@@ -204,9 +222,9 @@ def _strip_lame_padding_frame(frame_data: bytes) -> bool:
     return False
 
 
-
 class Mp3Frame(NamedTuple):
     """Structured representation of an MP3 frame."""
+
     data: bytes
     mpeg_version: int
     layer: int
@@ -230,18 +248,52 @@ class Mp3Parser:
     # MPEG bitrate table (kbps) - indexed by [version][layer][bitrate_index]
     BITRATE_TABLE = {
         1: {  # MPEG-1
-            3: [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0]  # Layer III
+            3: [
+                0,
+                32,
+                40,
+                48,
+                56,
+                64,
+                80,
+                96,
+                112,
+                128,
+                160,
+                192,
+                224,
+                256,
+                320,
+                0,
+            ]  # Layer III
         },
         2: {  # MPEG-2
-            3: [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]  # Layer III
-        }
+            3: [
+                0,
+                8,
+                16,
+                24,
+                32,
+                40,
+                48,
+                56,
+                64,
+                80,
+                96,
+                112,
+                128,
+                144,
+                160,
+                0,
+            ]  # Layer III
+        },
     }
 
     # Sample rate table - indexed by [version][sample_rate_index]
     SAMPLE_RATE_TABLE = {
         1: [44100, 48000, 32000],  # MPEG-1
         2: [22050, 24000, 16000],  # MPEG-2
-        2.5: [11025, 12000, 8000]  # MPEG-2.5
+        2.5: [11025, 12000, 8000],  # MPEG-2.5
     }
 
     def __init__(self, file: BinaryIO):
@@ -252,12 +304,16 @@ class Mp3Parser:
         """Skip ID3v2 tag if present."""
         self.file.seek(0)
         header = self.file.read(10)
-        if header.startswith(b'ID3'):
+        if header.startswith(b"ID3"):
             # Parse ID3v2 header to skip it
-            size = struct.unpack('>I', header[6:10])[0]
+            size = struct.unpack(">I", header[6:10])[0]
             # ID3v2 size is synchsafe integer
-            size = (((size & 0x7f000000) >> 3) | ((size & 0x007f0000) >> 2) |
-                    ((size & 0x00007f00) >> 1) | (size & 0x0000007f))
+            size = (
+                ((size & 0x7F000000) >> 3)
+                | ((size & 0x007F0000) >> 2)
+                | ((size & 0x00007F00) >> 1)
+                | (size & 0x0000007F)
+            )
             self.file.seek(size + 10)
         else:
             self.file.seek(0)
@@ -268,15 +324,25 @@ class Mp3Parser:
             return False
 
         main_data_start = main_data_offset
-        return (frame_data[main_data_start:main_data_start+4] in [b'Xing', b'Info', b'VBRI'])
+        return frame_data[main_data_start : main_data_start + 4] in [
+            b"Xing",
+            b"Info",
+            b"VBRI",
+        ]
 
-    def _parse_main_data_begin(self, frame_data: bytes, protection_bit: int, channel_mode: int, mpeg_version: int) -> bool:
+    def _parse_main_data_begin(
+        self,
+        frame_data: bytes,
+        protection_bit: int,
+        channel_mode: int,
+        mpeg_version: int,
+    ) -> bool:
         """Parse main data begin field to check for bit reservoir usage."""
         # Calculate side info size
         if mpeg_version == 1:  # MPEG-1
             side_info_size = 17 if channel_mode == 3 else 32  # mono vs stereo
         else:  # MPEG-2/2.5
-            side_info_size = 9 if channel_mode == 3 else 17   # mono vs stereo
+            side_info_size = 9 if channel_mode == 3 else 17  # mono vs stereo
         if protection_bit == 0:  # CRC present
             side_info_size += 2
 
@@ -290,12 +356,13 @@ class Mp3Parser:
             return False
 
         # Main data begin is 9 bits starting from the first byte of side info
-        main_data_begin = ((frame_data[side_info_start] << 1) |
-                          (frame_data[side_info_start + 1] >> 7)) & 0x1FF
+        main_data_begin = (
+            (frame_data[side_info_start] << 1) | (frame_data[side_info_start + 1] >> 7)
+        ) & 0x1FF
 
         return main_data_begin > 0
 
-    def __iter__(self) -> Iterable[Mp3Frame]:
+    def __iter__(self) -> Generator[Mp3Frame]:
         """Iterate over MP3 frames in the file."""
         while True:
             # Look for frame sync (11 bits set)
@@ -331,16 +398,26 @@ class Mp3Parser:
                 layer = 4 - layer_bits
 
                 # We only handle Layer III (MP3)
-                if (layer == 3 and mpeg_version in [1, 2] and
-                    bitrate_index < 16 and sample_rate_index < 3):
+                if (
+                    layer == 3
+                    and mpeg_version in [1, 2]
+                    and bitrate_index < 16
+                    and sample_rate_index < 3
+                ):
+                    assert isinstance(mpeg_version, int)
 
                     bitrate = self.BITRATE_TABLE[mpeg_version][layer][bitrate_index]
-                    sample_rate = self.SAMPLE_RATE_TABLE[mpeg_version][sample_rate_index]
+                    sample_rate = self.SAMPLE_RATE_TABLE[mpeg_version][
+                        sample_rate_index
+                    ]
 
                     if bitrate > 0:  # Valid bitrate
                         # Calculate frame size
                         samples_per_frame = 1152 if mpeg_version == 1 else 576
-                        frame_size = int((samples_per_frame * bitrate * 1000 / 8) / sample_rate) + padding
+                        frame_size = (
+                            int((samples_per_frame * bitrate * 1000 / 8) / sample_rate)
+                            + padding
+                        )
 
                         # Go back to start of frame and read the entire frame
                         self.file.seek(frame_start_pos)
@@ -349,7 +426,8 @@ class Mp3Parser:
                         if len(frame_data) == frame_size:
                             # Check for bit reservoir usage
                             uses_bit_reservoir = self._parse_main_data_begin(
-                                frame_data, protection_bit, channel_mode, mpeg_version)
+                                frame_data, protection_bit, channel_mode, mpeg_version
+                            )
 
                             # Check for VBR header
                             if mpeg_version == 1:  # MPEG-1
@@ -359,7 +437,9 @@ class Mp3Parser:
                             if protection_bit == 0:
                                 side_info_size += 2
                             main_data_offset = 4 + side_info_size
-                            has_vbr_header = self._check_vbr_header(frame_data, main_data_offset)
+                            has_vbr_header = self._check_vbr_header(
+                                frame_data, main_data_offset
+                            )
 
                             yield Mp3Frame(
                                 data=frame_data,
@@ -370,7 +450,7 @@ class Mp3Parser:
                                 channel_mode=channel_mode,
                                 frame_size=frame_size,
                                 uses_bit_reservoir=uses_bit_reservoir,
-                                has_vbr_header=has_vbr_header
+                                has_vbr_header=has_vbr_header,
                             )
                         else:
                             # Incomplete frame, end of file
@@ -388,7 +468,9 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 2:
         print(f"Usage: {sys.argv[0]} <mp3 file> # for info")
-        print("   or:  mp3_concat.py <mp3 file1> <mp3 file2> ... > output.mp3 # to concatenate")
+        print(
+            "   or:  mp3_concat.py <mp3 file1> <mp3 file2> ... > output.mp3 # to concatenate"
+        )
         sys.exit(1)
 
     if len(sys.argv) == 2:
@@ -402,4 +484,3 @@ if __name__ == "__main__":
     mp3_paths = [pathlib.Path(arg) for arg in sys.argv[1:]]
     for bytes in concat_mp3_files(mp3_paths):
         sys.stdout.buffer.write(bytes)
-
