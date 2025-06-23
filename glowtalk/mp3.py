@@ -14,6 +14,9 @@ def concat_mp3_files(input_paths: Iterable[pathlib.Path]) -> Iterable[bytes]:
     Raises an error if any frame uses the bit reservoir. This is key to making this
     low overhead enough to be done on demand for users.
 
+    All files should have the same MPEG version, sample rate,
+    and channel mode.
+
     Note: VBR headers (Xing/LAME) are stripped from the first frame to prevent duration
     metadata issues in concatenated files. This may cause some players to initially
     show incorrect duration until they scan the full file.
@@ -21,6 +24,11 @@ def concat_mp3_files(input_paths: Iterable[pathlib.Path]) -> Iterable[bytes]:
     This function works in streaming mode - it processes files one at a time and can
     handle lazy iterables that are only available as needed.
     """
+    expected_mpeg_version = None
+    expected_sample_rate = None
+    expected_channel_mode = None
+    first_frame = True
+
     for path in input_paths:
         with open(path, 'rb') as f:
             parser = Mp3Parser(f)
@@ -29,12 +37,34 @@ def concat_mp3_files(input_paths: Iterable[pathlib.Path]) -> Iterable[bytes]:
                 if frame.uses_bit_reservoir:
                     raise ValueError(f"File {path} uses bit reservoir and cannot be concatenated")
 
+                # Check compatibility with previous files
+                if first_frame:
+                    expected_mpeg_version = frame.mpeg_version
+                    expected_sample_rate = frame.sample_rate
+                    expected_channel_mode = frame.channel_mode
+                    first_frame = False
+                else:
+                    if frame.mpeg_version != expected_mpeg_version:
+                        raise ValueError(f"File {path} has MPEG version {frame.mpeg_version}, "
+                                       f"expected {expected_mpeg_version}")
+                    if frame.sample_rate != expected_sample_rate:
+                        raise ValueError(f"File {path} has sample rate {frame.sample_rate} Hz, "
+                                       f"expected {expected_sample_rate} Hz")
+                    if frame.channel_mode != expected_channel_mode:
+                        import warnings
+                        warnings.warn(f"File {path} has different channel mode {frame.channel_mode}, "
+                                    f"expected {expected_channel_mode}. Concatenation may cause audio artifacts.")
+
                 frame_data = frame.data
 
                 # Strip VBR headers, they contain metadata that becomes
                 # incorrect when concatenating files.
                 if frame.has_vbr_header:
                     frame_data = _strip_vbr_header(frame_data)
+
+                # Strip LAME padding frames if present
+                if _strip_lame_padding_frame(frame_data):
+                    continue
 
                 yield frame_data
 
@@ -122,8 +152,16 @@ def _strip_vbr_header(frame_data: bytes) -> bytes:
     # Check for Xing/Info header
     if frame_data[main_data_start:main_data_start+4] in [b'Xing', b'Info']:
         # Xing header found - replace with silence/zeros
-        # Xing header is typically 120 bytes, but we'll be conservative
+        # Xing header is typically 120 bytes
         header_size = min(120, len(frame_data) - main_data_start)
+
+        # Check if LAME header follows immediately after Xing
+        lame_offset = main_data_start + 120
+        if (lame_offset + 4 <= len(frame_data) and
+            frame_data[lame_offset:lame_offset+4] == b'LAME'):
+            # LAME header is 36 bytes, include it in stripping
+            header_size = min(156, len(frame_data) - main_data_start)  # 120 + 36
+
         return (frame_data[:main_data_start] +
                 b'\x00' * header_size +
                 frame_data[main_data_start + header_size:])
@@ -138,6 +176,33 @@ def _strip_vbr_header(frame_data: bytes) -> bytes:
 
     # No VBR header found, return original frame
     return frame_data
+
+
+def _strip_lame_padding_frame(frame_data: bytes) -> bool:
+    """Check if this is a LAME padding frame that should be stripped.
+
+    LAME often adds padding frames at the end of files with minimal audio data.
+    These frames typically contain mostly the LAME encoder signature.
+
+    Returns True if this frame should be stripped during concatenation.
+    """
+    # Look for LAME signature in various positions within the frame
+    if b'LAME3.100' in frame_data:
+        # Check if this is a very short frame (likely padding)
+        if len(frame_data) <= 32:
+            return True
+
+        # Check if most of the frame is zeros or LAME signature
+        non_header_data = frame_data[4:]  # Skip MP3 header
+        lame_content = non_header_data.count(b'LAME3.100') * 9  # Length of "LAME3.100"
+        zero_content = non_header_data.count(0)
+
+        # If more than 80% of the frame is LAME signatures or zeros, it's likely padding
+        if (lame_content + zero_content) > (len(non_header_data) * 0.8):
+            return True
+
+    return False
+
 
 
 class Mp3Frame(NamedTuple):
