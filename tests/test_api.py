@@ -210,37 +210,36 @@ async def test_audiobook_generation_progress(
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        async with client.stream(
-            "GET", f"/api/audiobooks/{audiobook_id}/generation_progress"
-        ) as response:
-            assert response.status_code == 200
-            assert response.headers["content-type"] == "text/event-stream"
-            return
-            # Get and verify first event
-            messages = AsyncSSEMessageParser.from_response(response)
-            message = await anext(messages)
-            first_event = json.loads(message)
-            assert first_event["pending"] == queued_items
-            assert first_event["in_progress"] == 0
-            assert first_event["completed"] == 0
+    ) as client, client.stream(
+        "GET", f"/api/audiobooks/{audiobook_id}/generation_progress"
+    ) as response:
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "text/event-stream"
+        return
+        # Get and verify first event
+        messages = AsyncSSEMessageParser.from_response(response)
+        message = await anext(messages)
+        first_event = json.loads(message)
+        assert first_event["pending"] == queued_items
+        assert first_event["in_progress"] == 0
+        assert first_event["completed"] == 0
 
-            # Complete all work items
-            work_items = (
-                db_session.query(models.WorkQueue)
-                .filter_by(audiobook_id=audiobook_id)
-                .all()
-            )
-            for item in work_items:
-                item.status = "completed"
-            db_session.commit()
+        # Complete all work items
+        work_items = (
+            db_session.query(models.WorkQueue)
+            .filter_by(audiobook_id=audiobook_id)
+            .all()
+        )
+        for item in work_items:
+            item.status = "completed"
+        db_session.commit()
 
-            # Get and verify final event
-            event_data = next(response.iter_lines())
-            final_event = json.loads(event_data.decode().replace("data: ", ""))
-            assert final_event["pending"] == 0
-            assert final_event["in_progress"] == 0
-            assert final_event["completed"] == queued_items
+        # Get and verify final event
+        event_data = next(response.iter_lines())
+        final_event = json.loads(event_data.decode().replace("data: ", ""))
+        assert final_event["pending"] == 0
+        assert final_event["in_progress"] == 0
+        assert final_event["completed"] == queued_items
 
 
 from typing import AsyncIterator, Iterator

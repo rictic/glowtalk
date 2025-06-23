@@ -26,7 +26,7 @@ def get_unique_filename() -> Path:
         file_path = outputs_dir / filename
 
         try:
-            with file_path.open("x") as f:
+            with file_path.open("x"):
                 return file_path
         except FileExistsError:
             counter += 1

@@ -23,7 +23,7 @@ class Worker:
         self.verbose = verbose
         self.idle_threshold_seconds = idle_threshold_seconds
         # one speaker per model
-        self.speakers: dict[models.SpeakerModel, speak.Speaker] = dict()
+        self.speakers: dict[models.SpeakerModel, speak.Speaker] = {}
 
         if worker_id:
             # Use provided worker ID (useful for tests)

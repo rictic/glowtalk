@@ -107,7 +107,7 @@ class ContentPiece(Base):
         return (
             session.query(cls)
             .outerjoin(VoicePerformance)
-            .filter(cls.should_voice == True, VoicePerformance.id == None)
+            .filter(cls.should_voice, VoicePerformance.id is None)
         )
 
     def get_speaker_for_audiobook(
@@ -235,7 +235,7 @@ class Audiobook(Base):
             .join(Part)
             .join(OriginalWork)
             .filter(
-                ContentPiece.should_voice == True,
+                ContentPiece.should_voice,
                 ContentPiece.part_id == Part.id,
                 OriginalWork.id == self.original_work_id,
             )

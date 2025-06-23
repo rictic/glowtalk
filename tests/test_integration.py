@@ -260,10 +260,10 @@ def test_full_workflow(
     # get a voiced content piece
     content_piece = (
         db_session.query(models.ContentPiece)
-        .filter(models.ContentPiece.should_voice == True)
+        .filter(models.ContentPiece.should_voice)
         .first()
     )
-    for i in range(3):
+    for _i in range(3):
         assert content_piece is not None
         response = client.post(
             f"/api/content_pieces/{content_piece.id}/voice",

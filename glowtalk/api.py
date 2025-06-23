@@ -663,7 +663,7 @@ def get_audiobook_details(audiobook_id: int, db: Session = Depends(get_db)):
         .filter(
             models.Audiobook.id == audiobook_id,
             models.Part.original_work_id == models.OriginalWork.id,
-            models.Part.character != None,
+            models.Part.character is not None,
         )
         .distinct()
         .all()
