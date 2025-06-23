@@ -178,6 +178,8 @@
             echo "📋 Available commands:"
             echo "  python -m glowtalk --help    # Run the application"
             echo "  pytest                       # Run tests"
+            echo "  ruff check .                 # Run linter"
+            echo "  ruff format .                # Format code"
             echo "  cd glowtalk/static && npm run build  # Build frontend"
           '';
         };

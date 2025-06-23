@@ -208,11 +208,14 @@ async def test_audiobook_generation_progress(
     queued_items = response.json()["queued_items"]
     assert queued_items > 0
 
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client, client.stream(
-        "GET", f"/api/audiobooks/{audiobook_id}/generation_progress"
-    ) as response:
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client,
+        client.stream(
+            "GET", f"/api/audiobooks/{audiobook_id}/generation_progress"
+        ) as response,
+    ):
         assert response.status_code == 200
         assert response.headers["content-type"] == "text/event-stream"
         return

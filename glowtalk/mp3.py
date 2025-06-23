@@ -63,7 +63,8 @@ def concat_mp3_files(input_paths: Sequence[pathlib.Path]) -> Iterator[bytes]:
 
                         warnings.warn(
                             f"File {path} has different channel mode {frame.channel_mode}, "
-                            f"expected {expected_channel_mode}. Concatenation may cause audio artifacts.", stacklevel=2
+                            f"expected {expected_channel_mode}. Concatenation may cause audio artifacts.",
+                            stacklevel=2,
                         )
 
                 frame_data = frame.data
