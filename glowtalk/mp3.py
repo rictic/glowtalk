@@ -3,7 +3,8 @@
 import pathlib
 import struct
 
-from typing import BinaryIO, Iterator, NamedTuple, Sequence
+from collections.abc import Iterator, Sequence
+from typing import BinaryIO, NamedTuple
 
 
 def concat_mp3_files(input_paths: Sequence[pathlib.Path]) -> Iterator[bytes]:

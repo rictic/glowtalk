@@ -9,7 +9,7 @@ import traceback
 from asyncio import Event
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import (
     BackgroundTasks,
@@ -68,7 +68,7 @@ class ScrapeGlowficRequest(BaseModel):
 class WorkResponse(BaseModel):
     id: int
     url: str
-    title: Optional[str]
+    title: str | None
     scrape_date: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -77,7 +77,7 @@ class WorkResponse(BaseModel):
 class WorkDetailResponse(BaseModel):
     id: int
     url: str
-    title: Optional[str]
+    title: str | None
     scrape_date: datetime
     num_content_pieces: int
 
@@ -85,9 +85,9 @@ class WorkDetailResponse(BaseModel):
 class AudiobookResponse(BaseModel):
     id: int
     original_work_id: int
-    description: Optional[str] = None
-    default_speaker_id: Optional[int] = None
-    forked_from_id: Optional[int] = None
+    description: str | None = None
+    default_speaker_id: int | None = None
+    forked_from_id: int | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -117,13 +117,13 @@ class SpeakerCreate(BaseModel):
 class CharacterVoiceCreate(BaseModel):
     character_name: str
     voice_name: str
-    model: Optional[str]
+    model: str | None
 
 
 class AudiobookCreate(BaseModel):
-    description: Optional[str] = None
-    default_speaker_id: Optional[int] = None
-    forked_from_id: Optional[int] = None
+    description: str | None = None
+    default_speaker_id: int | None = None
+    forked_from_id: int | None = None
 
 
 class TakeWorkRequest(BaseModel):
@@ -150,7 +150,7 @@ class RegenerateContentPieceRequest(BaseModel):
 
 
 class GetWavFilesResponse(BaseModel):
-    files: List[str]
+    files: list[str]
     complete: bool
 
 
@@ -160,8 +160,8 @@ class WorkItemFailureRequest(BaseModel):
 
 class CharacterVoiceDetailResponse(BaseModel):
     character_name: str
-    reference_voice: Optional[str] = None
-    model: Optional[str] = None
+    reference_voice: str | None = None
+    model: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -169,10 +169,10 @@ class CharacterVoiceDetailResponse(BaseModel):
 class AudiobookDetailResponse(BaseModel):
     id: int
     original_work_id: int
-    description: Optional[str] = None
-    default_speaker: Optional[CharacterVoiceDetailResponse] = None
+    description: str | None = None
+    default_speaker: CharacterVoiceDetailResponse | None = None
     created_at: datetime
-    characters: List[CharacterVoiceDetailResponse]
+    characters: list[CharacterVoiceDetailResponse]
     has_mp3: bool
 
     model_config = ConfigDict(from_attributes=True)
@@ -181,30 +181,30 @@ class AudiobookDetailResponse(BaseModel):
 class ReferenceVoiceResponse(BaseModel):
     audio_hash: str
     name: str
-    description: Optional[str]
-    transcript: Optional[str]
+    description: str | None
+    transcript: str | None
 
 
 class SetDefaultSpeakerRequest(BaseModel):
     voice_name: str
-    model: Optional[str]
+    model: str | None
 
 
 class ContentPieceContentResponse(BaseModel):
     id: int
     text: str
     voiced: bool
-    audio_file_hash: Optional[str]
+    audio_file_hash: str | None
 
 
 class PartContentResponse(BaseModel):
     id: int
-    character_name: Optional[str]
-    screenname: Optional[str]
-    icon_url: Optional[HttpUrl]
-    icon_title: Optional[str]
-    author_name: Optional[str]
-    content_pieces: List[ContentPieceContentResponse]
+    character_name: str | None
+    screenname: str | None
+    icon_url: HttpUrl | None
+    icon_title: str | None
+    author_name: str | None
+    content_pieces: list[ContentPieceContentResponse]
 
 
 # --- API Routes ---
@@ -215,7 +215,7 @@ def ok():
     return {"ok": True}
 
 
-@app.get("/api/works/recent", response_model=List[WorkResponse])
+@app.get("/api/works/recent", response_model=list[WorkResponse])
 def get_recent_works(db: Session = Depends(get_db)):
     """Get the most recently scraped works"""
     try:
@@ -322,7 +322,7 @@ def set_default_speaker(
     return audiobook
 
 
-@app.get("/api/works/{work_id}/audiobooks", response_model=List[AudiobookResponse])
+@app.get("/api/works/{work_id}/audiobooks", response_model=list[AudiobookResponse])
 def get_audiobooks_for_work(work_id: int, db: Session = Depends(get_db)):
     """Get all audiobooks for a specific work"""
     return (
@@ -416,13 +416,13 @@ async def create_speaker(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.get("/api/speaker_models", response_model=List[dict])
+@app.get("/api/speaker_models", response_model=list[dict])
 def get_speaker_models():
     """Get all speaker models"""
     return [{"name": model.value} for model in models.SpeakerModel]
 
 
-@app.get("/api/reference_voices", response_model=List[ReferenceVoiceResponse])
+@app.get("/api/reference_voices", response_model=list[ReferenceVoiceResponse])
 def get_reference_voices(db: Session = Depends(get_db)):
     """Get all reference voices"""
     return db.query(models.ReferenceVoice).all()

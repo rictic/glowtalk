@@ -64,7 +64,7 @@ target-version = "py310"
 # McCabe complexity (`C901`) by default.
 select = [
     "E4",   # pycodestyle errors
-    "E7",   # pycodestyle errors  
+    "E7",   # pycodestyle errors
     "E9",   # pycodestyle errors
     "F",    # Pyflakes
     "I",    # isort

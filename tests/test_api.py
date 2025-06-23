@@ -242,7 +242,7 @@ async def test_audiobook_generation_progress(
         assert final_event["completed"] == queued_items
 
 
-from typing import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator
 
 import attr
 

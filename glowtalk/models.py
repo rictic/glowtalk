@@ -3,9 +3,10 @@ import hashlib
 import os
 import uuid
 
+from collections.abc import Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Optional
 
 from sqlalchemy import (
     Boolean,
