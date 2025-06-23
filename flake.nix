@@ -97,6 +97,7 @@
             pkgs.lame # For fine grained control over MP3 encoding
             pkgs.espeak # Required for TTS
             pkgs.sox # Audio processing for TTS
+            pkgs.pyright # Python type checker
           ]
           ++ (
             if pkgs.stdenv.isDarwin then
@@ -180,6 +181,7 @@
             echo "  pytest                       # Run tests"
             echo "  ruff check .                 # Run linter"
             echo "  ruff format .                # Format code"
+            echo "  pyright                      # Run type checker"
             echo "  cd glowtalk/static && npm run build  # Build frontend"
           '';
         };

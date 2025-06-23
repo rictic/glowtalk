@@ -57,6 +57,10 @@ def combine_wav_to_mp3(wav_files: Iterator[Path], output_mp3_path: Path) -> None
         cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
 
+    # Type assertions since we explicitly set these pipes
+    assert process.stdin is not None
+    assert process.stderr is not None
+
     try:
         # Stream chunks to FFmpeg
         for chunk in stream_wav_chunks(itertools.chain([first_file], wav_files)):

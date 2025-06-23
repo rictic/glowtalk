@@ -167,6 +167,7 @@ class Worker:
             except Exception:
                 # Don't worry about it, we tried. Probably the API is down.
                 pass
+            return
 
         completion_response = self.client.post(
             f"/api/queue/{work_item['id']}/complete/{self.worker_id}", files=files

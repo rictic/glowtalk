@@ -10,7 +10,6 @@ from typing import Optional
 
 from sqlalchemy import (
     Boolean,
-    Column,
     DateTime,
     Enum,
     ForeignKey,
@@ -19,7 +18,13 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.ext.orderinglist import ordering_list
-from sqlalchemy.orm import Session, declarative_base, relationship
+from sqlalchemy.orm import (
+    Session,
+    declarative_base,
+    relationship,
+    mapped_column,
+    Mapped,
+)
 
 from glowtalk import convert
 
@@ -29,10 +34,10 @@ Base = declarative_base()
 class OriginalWork(Base):
     __tablename__ = "original_works"
 
-    id = Column(Integer, primary_key=True)
-    url = Column(String, nullable=False)
-    title = Column(String, nullable=True)
-    scrape_date = Column(DateTime, default=datetime.utcnow)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    url: Mapped[str] = mapped_column(String, nullable=False)
+    title: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    scrape_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     # Relationships
     audiobooks = relationship("Audiobook", back_populates="original_work")
@@ -66,17 +71,19 @@ class OriginalWork(Base):
 class Part(Base):
     __tablename__ = "parts"
 
-    id = Column(Integer, primary_key=True)
-    original_work_id = Column(Integer, ForeignKey("original_works.id"), nullable=False)
-    position = Column(Integer)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    original_work_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("original_works.id"), nullable=False
+    )
+    position: Mapped[Optional[int]] = mapped_column(Integer)
 
     # Metadata
-    title = Column(String, nullable=True)
-    author = Column(String, nullable=True)
-    icon_url = Column(String, nullable=True)
-    icon_title = Column(String, nullable=True)
-    character = Column(String, nullable=True)
-    screenname = Column(String, nullable=True)
+    title: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    author: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    icon_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    icon_title: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    character: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    screenname: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     # Relationships
     original_work = relationship("OriginalWork", back_populates="parts")
@@ -91,12 +98,14 @@ class Part(Base):
 class ContentPiece(Base):
     __tablename__ = "content_pieces"
 
-    id = Column(Integer, primary_key=True)
-    part_id = Column(Integer, ForeignKey("parts.id"), nullable=False)
-    text = Column(String, nullable=False)
-    character = Column(String, nullable=True)
-    should_voice = Column(Boolean, default=True)
-    position = Column(Integer)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    part_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("parts.id"), nullable=False
+    )
+    text: Mapped[str] = mapped_column(String, nullable=False)
+    character: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    should_voice: Mapped[bool] = mapped_column(Boolean, default=True)
+    position: Mapped[Optional[int]] = mapped_column(Integer)
 
     # Relationships
     part = relationship("Part", back_populates="content_pieces")
@@ -184,13 +193,19 @@ class ContentPiece(Base):
 class Audiobook(Base):
     __tablename__ = "audiobooks"
 
-    id = Column(Integer, primary_key=True)
-    original_work_id = Column(Integer, ForeignKey("original_works.id"), nullable=False)
-    default_speaker_id = Column(Integer, ForeignKey("speakers.id"), nullable=True)
-    description = Column(String, nullable=True)
-    forked_from_id = Column(Integer, ForeignKey("audiobooks.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    mp3_path = Column(String, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    original_work_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("original_works.id"), nullable=False
+    )
+    default_speaker_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("speakers.id"), nullable=True
+    )
+    description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    forked_from_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("audiobooks.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    mp3_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     # Relationships
     original_work = relationship("OriginalWork", back_populates="audiobooks")
@@ -252,6 +267,9 @@ class Audiobook(Base):
         added_count = 0
         for piece in should_voice:
             speaker = piece.get_speaker_for_audiobook(session, self)
+            if not speaker:
+                # Skip pieces without a speaker configured
+                continue
             # Does this speaker already have a performance for this content piece?
             existing_performance = (
                 session.query(VoicePerformance)
@@ -307,14 +325,20 @@ class Audiobook(Base):
 class VoicePerformance(Base):
     __tablename__ = "voice_performances"
 
-    id = Column(Integer, primary_key=True)
-    audiobook_id = Column(Integer, ForeignKey("audiobooks.id"), nullable=False)
-    content_piece_id = Column(Integer, ForeignKey("content_pieces.id"), nullable=False)
-    speaker_id = Column(Integer, ForeignKey("speakers.id"), nullable=False)
-    audio_file_path = Column(String, nullable=False)
-    audio_file_hash = Column(String, nullable=False)
-    generation_date = Column(DateTime, default=datetime.utcnow)
-    worker_id = Column(String, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    audiobook_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("audiobooks.id"), nullable=False
+    )
+    content_piece_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("content_pieces.id"), nullable=False
+    )
+    speaker_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("speakers.id"), nullable=False
+    )
+    audio_file_path: Mapped[str] = mapped_column(String, nullable=False)
+    audio_file_hash: Mapped[str] = mapped_column(String, nullable=False)
+    generation_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    worker_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     # Relationships
     audiobook = relationship("Audiobook")
@@ -336,13 +360,13 @@ _speaker_model = None
 class ReferenceVoice(Base):
     __tablename__ = "reference_voices"
 
-    id = Column(Integer, primary_key=True)
-    audio_path = Column(String, nullable=False)
-    audio_hash = Column(String, nullable=False)
-    description = Column(String, nullable=True)
-    transcript = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    name = Column(String, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    audio_path: Mapped[str] = mapped_column(String, nullable=False)
+    audio_hash: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    transcript: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    name: Mapped[str] = mapped_column(String, nullable=False)
 
     # Relationships
     speakers = relationship("Speaker", back_populates="reference_voice")
@@ -392,9 +416,9 @@ class ReferenceVoice(Base):
 class Speaker(Base):
     __tablename__ = "speakers"
 
-    id = Column(Integer, primary_key=True)
-    model = Column(Enum(SpeakerModel), nullable=False)
-    reference_voice_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    model: Mapped[SpeakerModel] = mapped_column(Enum(SpeakerModel), nullable=False)
+    reference_voice_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("reference_voices.id"), nullable=False
     )
 
@@ -450,7 +474,7 @@ class Speaker(Base):
         if not _speaker_model:
             import glowtalk.speak
 
-            _speaker_model = glowtalk.speak.Speaker(model=self.model.value)
+            _speaker_model = glowtalk.speak.Speaker(model=self.model)
         audio_path = _speaker_model.speak(
             content_piece.text, self.reference_voice.audio_path
         )
@@ -473,10 +497,14 @@ class Speaker(Base):
 class CharacterVoice(Base):
     __tablename__ = "character_voices"
 
-    id = Column(Integer, primary_key=True)
-    audiobook_id = Column(Integer, ForeignKey("audiobooks.id"), nullable=False)
-    character_name = Column(String, nullable=False)
-    speaker_id = Column(Integer, ForeignKey("speakers.id"), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    audiobook_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("audiobooks.id"), nullable=False
+    )
+    character_name: Mapped[str] = mapped_column(String, nullable=False)
+    speaker_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("speakers.id"), nullable=False
+    )
 
     # Relationships
     audiobook = relationship("Audiobook", back_populates="character_voices")
@@ -525,23 +553,33 @@ class CharacterVoice(Base):
 class WorkQueue(Base):
     __tablename__ = "work_queue"
 
-    id = Column(Integer, primary_key=True)
-    content_piece_id = Column(Integer, ForeignKey("content_pieces.id"), nullable=False)
-    audiobook_id = Column(Integer, ForeignKey("audiobooks.id"), nullable=False)
-    speaker_id = Column(Integer, ForeignKey("speakers.id"), nullable=False)
-    created_voice_performance_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    content_piece_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("content_pieces.id"), nullable=False
+    )
+    audiobook_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("audiobooks.id"), nullable=False
+    )
+    speaker_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("speakers.id"), nullable=False
+    )
+    created_voice_performance_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("voice_performances.id"), nullable=True
     )
-    priority = Column(Integer, default=0)  # Higher number = higher priority
-    status = Column(
+    priority: Mapped[int] = mapped_column(
+        Integer, default=0
+    )  # Higher number = higher priority
+    status: Mapped[str] = mapped_column(
         Enum("pending", "in_progress", "completed", "failed", name="queue_status"),
         default="pending",
     )
-    created_at = Column(DateTime, default=datetime.utcnow)
-    started_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
-    worker_id = Column(String, nullable=True)  # ID of the worker processing this item
-    error_message = Column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    worker_id: Mapped[Optional[str]] = mapped_column(
+        String, nullable=True
+    )  # ID of the worker processing this item
+    error_message: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     # Relationships
     content_piece = relationship("ContentPiece")

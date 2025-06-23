@@ -25,20 +25,26 @@ class WindowsIdleChecker(IdleChecker):
         self.ctypes = ctypes
 
     def get_idle_time(self):
-        self.ctypes.windll.user32.GetLastInputInfo(
-            self.ctypes.byref(self.lastInputInfo)
-        )
-        current_tick = self.ctypes.windll.kernel32.GetTickCount()
-        return (current_tick - self.lastInputInfo.dwTime) / 1000.0
+        # Type checking: this only runs on Windows where windll exists
+        if hasattr(self.ctypes, "windll"):
+            self.ctypes.windll.user32.GetLastInputInfo(  # type: ignore
+                self.ctypes.byref(self.lastInputInfo)
+            )
+            current_tick = self.ctypes.windll.kernel32.GetTickCount()  # type: ignore
+            return (current_tick - self.lastInputInfo.dwTime) / 1000.0
+        else:
+            raise RuntimeError("Windows APIs not available on this platform")
 
 
 class LinuxIdleChecker(IdleChecker):
     def __init__(self):
         try:
-            from Xlib import display
-            from Xlib.ext import screensaver
+            from Xlib import display  # type: ignore
+            from Xlib.ext import screensaver  # type: ignore
         except ImportError as e:
-            raise ImportError("Please install python-xlib: pip install python-xlib") from e
+            raise ImportError(
+                "Please install python-xlib: pip install python-xlib"
+            ) from e
 
         self.display = display.Display()
         self.screensaver = self.display.get_extension_data(screensaver.extname)
@@ -54,7 +60,7 @@ class LinuxIdleChecker(IdleChecker):
 class MacIdleChecker(IdleChecker):
     def __init__(self):
         try:
-            from Quartz import (
+            from Quartz import (  # type: ignore
                 CGEventSourceSecondsSinceLastEventType,
                 kCGAnyInputEventType,
                 kCGEventSourceStateHIDSystemState,

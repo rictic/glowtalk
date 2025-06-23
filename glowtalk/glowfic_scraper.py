@@ -69,7 +69,7 @@ def create_from_glowfic(url: str, db: Session, soup: BeautifulSoup) -> OriginalW
 
     title_div = soup.find("div", class_="content-header")
     if title_div:
-        title_span = title_div.find("span", id="post-title")
+        title_span = title_div.find("span", id="post-title")  # type: ignore
         if title_span:
             original_work.title = title_span.text.strip()
 

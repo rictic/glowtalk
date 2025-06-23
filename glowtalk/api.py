@@ -205,7 +205,7 @@ class PartContentResponse(BaseModel):
     id: int
     character_name: str | None
     screenname: str | None
-    icon_url: HttpUrl | None
+    icon_url: str | None
     icon_title: str | None
     author_name: str | None
     content_pieces: list[ContentPieceContentResponse]
@@ -634,11 +634,19 @@ def voice_content_piece(
     if not audiobook:
         raise HTTPException(status_code=404, detail="Audiobook not found")
 
+    # Get the speaker for this content piece
+    speaker = content_piece.get_speaker_for_audiobook(db, audiobook)
+    if not speaker:
+        raise HTTPException(
+            status_code=400,
+            detail="No speaker configured for this content piece or audiobook",
+        )
+
     # Create a new work item for the content piece
     queue_item = models.WorkQueue(
         content_piece_id=content_piece.id,
         audiobook_id=audiobook.id,
-        speaker_id=content_piece.get_speaker_for_audiobook(db, audiobook).id,
+        speaker_id=speaker.id,
         priority=100,
     )
     db.add(queue_item)
@@ -667,7 +675,7 @@ def get_audiobook_details(audiobook_id: int, db: Session = db_dependency):
         .filter(
             models.Audiobook.id == audiobook_id,
             models.Part.original_work_id == models.OriginalWork.id,
-            models.Part.character is not None,
+            models.Part.character != None,
         )
         .distinct()
         .all()

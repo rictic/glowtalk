@@ -61,9 +61,9 @@ class Speaker:
         # But I haven't noticed any issues with that yet.
         self.tts.tts_to_file(
             text=text,
-            speaker_wav=speaker_wav,
+            speaker_wav=str(speaker_wav),
             language=language,
-            file_path=output_path,
+            file_path=str(output_path),
             **kwargs,
         )
 

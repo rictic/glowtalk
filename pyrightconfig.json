@@ -1,0 +1,23 @@
+{
+  "include": ["glowtalk", "tests"],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    "outputs",
+    "result"
+  ],
+  "stubPath": "typings",
+  "reportMissingImports": "warning",
+  "reportMissingTypeStubs": false,
+  "reportUnknownMemberType": "none",
+  "reportUnknownArgumentType": "none",
+  "reportUnknownVariableType": "none",
+  "reportUnknownParameterType": "none",
+  "reportUnnecessaryTypeIgnoreComment": "warning",
+  "executionEnvironments": [
+    {
+      "root": "."
+    }
+  ]
+}
