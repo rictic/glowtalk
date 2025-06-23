@@ -9,7 +9,6 @@ import traceback
 from asyncio import Event
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from fastapi import (
     BackgroundTasks,
@@ -24,7 +23,7 @@ from fastapi import (
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, HttpUrl
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 from starlette.responses import StreamingResponse
 
@@ -42,7 +41,7 @@ distDir = Path(__file__).parent / "static" / "dist"
 app.mount("/static", StaticFiles(directory=distDir), name="static")
 
 
-# --- Dependency ---
+# --- Dependencies ---
 def get_sessionmaker():
     global SessionLocal
     if SessionLocal is None:
@@ -50,12 +49,17 @@ def get_sessionmaker():
     return SessionLocal
 
 
-def get_db(sessionmaker: sessionmaker = Depends(get_sessionmaker)):
+def get_db():
+    sessionmaker = get_sessionmaker()
     session = sessionmaker()
     try:
         yield session
     finally:
         session.close()
+
+
+# Module-level dependency instances to avoid B008 warnings
+db_dependency = Depends(get_db)
 
 
 # --- Pydantic Models ---
@@ -216,7 +220,7 @@ def ok():
 
 
 @app.get("/api/works/recent", response_model=list[WorkResponse])
-def get_recent_works(db: Session = Depends(get_db)):
+def get_recent_works(db: Session = db_dependency):
     """Get the most recently scraped works"""
     try:
         return (
@@ -227,11 +231,11 @@ def get_recent_works(db: Session = Depends(get_db)):
         )
     except Exception as e:
         print(f"Error getting recent works: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @app.get("/api/works/{work_id}", response_model=WorkDetailResponse)
-def get_work(work_id: int, db: Session = Depends(get_db)):
+def get_work(work_id: int, db: Session = db_dependency):
     """Get details about a specific work including its parts and audiobooks"""
     work: models.OriginalWork = db.get(models.OriginalWork, work_id)
     if not work:
@@ -246,7 +250,7 @@ def get_work(work_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/works/scrape_glowfic", response_model=WorkResponse)
-def create_work(request: ScrapeGlowficRequest, db: Session = Depends(get_db)):
+def create_work(request: ScrapeGlowficRequest, db: Session = db_dependency):
     """Create a new work by URL, triggering scraping in the background"""
     new_work = glowfic_scraper.scrape_post(request.post_id, db)
     db.add(new_work)
@@ -256,7 +260,7 @@ def create_work(request: ScrapeGlowficRequest, db: Session = Depends(get_db)):
 
 
 @app.get("/api/audiobooks/{audiobook_id}", response_model=AudiobookResponse)
-def get_audiobook(audiobook_id: int, db: Session = Depends(get_db)):
+def get_audiobook(audiobook_id: int, db: Session = db_dependency):
     """Get details about a specific audiobook including its character voices"""
     audiobook = db.get(models.Audiobook, audiobook_id)
     if not audiobook:
@@ -266,7 +270,7 @@ def get_audiobook(audiobook_id: int, db: Session = Depends(get_db)):
 
 @app.post("/api/works/{work_id}/audiobooks", response_model=AudiobookResponse)
 def create_audiobook(
-    work_id: int, audiobook: AudiobookCreate, db: Session = Depends(get_db)
+    work_id: int, audiobook: AudiobookCreate, db: Session = db_dependency
 ):
     """Create a new audiobook for a work"""
     work = db.get(models.OriginalWork, work_id)
@@ -296,7 +300,7 @@ def create_audiobook(
     response_model=AudiobookResponse,
 )
 def set_default_speaker(
-    audiobook_id: int, request: SetDefaultSpeakerRequest, db: Session = Depends(get_db)
+    audiobook_id: int, request: SetDefaultSpeakerRequest, db: Session = db_dependency
 ):
     """Set the default speaker for an audiobook"""
     audiobook = db.get(models.Audiobook, audiobook_id)
@@ -323,7 +327,7 @@ def set_default_speaker(
 
 
 @app.get("/api/works/{work_id}/audiobooks", response_model=list[AudiobookResponse])
-def get_audiobooks_for_work(work_id: int, db: Session = Depends(get_db)):
+def get_audiobooks_for_work(work_id: int, db: Session = db_dependency):
     """Get all audiobooks for a specific work"""
     return (
         db.query(models.Audiobook)
@@ -337,7 +341,7 @@ def get_audiobooks_for_work(work_id: int, db: Session = Depends(get_db)):
     response_model=CharacterVoiceResponse,
 )
 def set_character_voice(
-    audiobook_id: int, voice: CharacterVoiceCreate, db: Session = Depends(get_db)
+    audiobook_id: int, voice: CharacterVoiceCreate, db: Session = db_dependency
 ):
     """Set or update a character's voice in an audiobook"""
     reference_voice = models.ReferenceVoice.get_by_name(db, voice.voice_name)
@@ -389,8 +393,8 @@ def save_reference_audio(file_content: bytes, name: str):
 async def create_speaker(
     name: str = Form(...),
     model: str = Form(...),
-    reference_audio: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    reference_audio: UploadFile = File(...),  # noqa: B008
+    db: Session = db_dependency,
 ):
     """Create a new speaker with a reference audio file"""
     try:
@@ -402,18 +406,18 @@ async def create_speaker(
         print(f"Saving reference audio for {name}")
         save_reference_audio(file_content, name)
         # Try to convert the model string to a SpeakerModel enum
-        model = models.SpeakerModel[model]
+        speaker_model = models.SpeakerModel[model]
 
         new_speaker = models.Speaker.get_or_create(
             db,
             name=name,
-            model=model,
+            model=speaker_model,
         )
         db.commit()
         db.refresh(new_speaker)
         return new_speaker
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @app.get("/api/speaker_models", response_model=list[dict])
@@ -423,13 +427,13 @@ def get_speaker_models():
 
 
 @app.get("/api/reference_voices", response_model=list[ReferenceVoiceResponse])
-def get_reference_voices(db: Session = Depends(get_db)):
+def get_reference_voices(db: Session = db_dependency):
     """Get all reference voices"""
     return db.query(models.ReferenceVoice).all()
 
 
 @app.get("/api/reference_voices/{audio_hash}", response_class=FileResponse)
-def get_reference_voice(audio_hash: str, db: Session = Depends(get_db)):
+def get_reference_voice(audio_hash: str, db: Session = db_dependency):
     """Get a specific reference voice"""
     reference_voice = (
         db.query(models.ReferenceVoice)
@@ -443,7 +447,7 @@ def get_reference_voice(audio_hash: str, db: Session = Depends(get_db)):
 
 @app.post("/api/audiobooks/{audiobook_id}/generate")
 def generate_audiobook(
-    audiobook_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+    audiobook_id: int, background_tasks: BackgroundTasks, db: Session = db_dependency
 ):
     """Start generating an audiobook by adding all unvoiced content to the work queue"""
     audiobook = db.get(models.Audiobook, audiobook_id)
@@ -455,7 +459,7 @@ def generate_audiobook(
 
 
 @app.get("/api/audiobooks/{audiobook_id}/wav_files", response_model=GetWavFilesResponse)
-def get_wav_files(audiobook_id: int, db: Session = Depends(get_db)):
+def get_wav_files(audiobook_id: int, db: Session = db_dependency):
     """Get a list of all WAV files for an audiobook"""
     audiobook = db.get(models.Audiobook, audiobook_id)
     if not audiobook:
@@ -472,7 +476,7 @@ def get_outputs_path():
 
 
 @app.get("/api/generated_wav_files/{hash}", response_class=FileResponse)
-def get_generated_wav_file(hash: str, db: Session = Depends(get_db)):
+def get_generated_wav_file(hash: str, db: Session = db_dependency):
     """Get a specific generated WAV file by its hash"""
     file_path = get_outputs_path() / f"{hash}.wav"
     if not file_path.exists():
@@ -484,7 +488,7 @@ def get_generated_wav_file(hash: str, db: Session = Depends(get_db)):
 
 
 @app.get("/api/generated_mp3_files/{hash}", response_class=FileResponse)
-def get_generated_mp3_file(hash: str, db: Session = Depends(get_db)):
+def get_generated_mp3_file(hash: str, db: Session = db_dependency):
     """Get a specific generated MP3 file by its hash"""
     file_path = get_outputs_path() / f"{hash}.mp3"
     if not file_path.exists():
@@ -495,8 +499,8 @@ def get_generated_mp3_file(hash: str, db: Session = Depends(get_db)):
     return FileResponse(file_path)
 
 
-@app.post("/api/queue/take", response_model=Optional[WorkQueueItemResponse])
-def assign_work_item(request: TakeWorkRequest, db: Session = Depends(get_db)):
+@app.post("/api/queue/take", response_model=WorkQueueItemResponse | None)
+def assign_work_item(request: TakeWorkRequest, db: Session = db_dependency):
     """Assign a pending work item to a worker"""
     if request.version != 1:
         # Servers should be backwards compatible, but not ready to commit
@@ -517,7 +521,7 @@ def assign_work_item(request: TakeWorkRequest, db: Session = Depends(get_db)):
 
 
 @app.get("/api/audiobooks/{audiobook_id}/mp3", response_class=FileResponse)
-def get_mp3_file(audiobook_id: int, db: Session = Depends(get_db)):
+def get_mp3_file(audiobook_id: int, db: Session = db_dependency):
     """Get an MP3 file for an audiobook"""
     audiobook = db.get(models.Audiobook, audiobook_id)
     if not audiobook:
@@ -526,7 +530,7 @@ def get_mp3_file(audiobook_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/audiobooks/{audiobook_id}/mp3", response_class=FileResponse)
-def generate_mp3_file(audiobook_id: int, db: Session = Depends(get_db)):
+def generate_mp3_file(audiobook_id: int, db: Session = db_dependency):
     """Generate an MP3 file for an audiobook"""
     audiobook = db.get(models.Audiobook, audiobook_id)
     if not audiobook:
@@ -538,8 +542,8 @@ def generate_mp3_file(audiobook_id: int, db: Session = Depends(get_db)):
 async def complete_work_item(
     item_id: int,
     worker_id: str,
-    generated_audio: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    generated_audio: UploadFile = File(...),  # noqa: B008
+    db: Session = db_dependency,
 ):
     """Create a voice performance and use it to complete a work item."""
     item = db.get(models.WorkQueue, item_id)
@@ -556,7 +560,7 @@ async def complete_work_item(
     output_path = output_path.resolve()
     if not output_path.exists():
         output_path.write_bytes(file_content)
-    convert.combine_wav_to_mp3([output_path], output_path.with_suffix(".mp3"))
+    convert.combine_wav_to_mp3(iter([output_path]), output_path.with_suffix(".mp3"))
 
     # Create the performance record and complete the work item
     performance = models.VoicePerformance(
@@ -579,7 +583,7 @@ def fail_work_item(
     item_id: int,
     worker_id: str,
     request: WorkItemFailureRequest,
-    db: Session = Depends(get_db),
+    db: Session = db_dependency,
 ):
     """Mark a work item as failed"""
     item: models.WorkQueue = db.get(models.WorkQueue, item_id)
@@ -589,7 +593,7 @@ def fail_work_item(
 
 
 @app.get("/api/queue/status")
-def get_queue_status(db: Session = Depends(get_db)):
+def get_queue_status(db: Session = db_dependency):
     """Get the current status of the work queue"""
     pending = (
         db.query(models.WorkQueue).filter(models.WorkQueue.status == "pending").count()
@@ -620,7 +624,7 @@ def get_queue_status(db: Session = Depends(get_db)):
 def voice_content_piece(
     content_piece_id: int,
     request: RegenerateContentPieceRequest,
-    db: Session = Depends(get_db),
+    db: Session = db_dependency,
 ):
     """Request a new voice performance for a content piece"""
     content_piece = db.get(models.ContentPiece, content_piece_id)
@@ -645,7 +649,7 @@ def voice_content_piece(
 @app.get(
     "/api/audiobooks/{audiobook_id}/details", response_model=AudiobookDetailResponse
 )
-def get_audiobook_details(audiobook_id: int, db: Session = Depends(get_db)):
+def get_audiobook_details(audiobook_id: int, db: Session = db_dependency):
     """Get detailed information about an audiobook including character voices"""
     audiobook = db.get(models.Audiobook, audiobook_id)
     if not audiobook:
@@ -725,17 +729,19 @@ def get_audiobook_details(audiobook_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/api/audiobooks/{audiobook_id}/content")
-def get_audiobook_content(
-    audiobook_id: int, sessionmaker: sessionmaker = Depends(get_sessionmaker)
-):
+def get_audiobook_content(audiobook_id: int, db: Session = db_dependency):
     """Get the content of an audiobook"""
-    session = sessionmaker()
-    audiobook: models.Audiobook = session.get(models.Audiobook, audiobook_id)
+    audiobook: models.Audiobook = db.get(models.Audiobook, audiobook_id)
     if not audiobook:
-        session.close()
         raise HTTPException(status_code=404, detail="Audiobook not found")
 
-    parts: list[models.Part] = audiobook.original_work.parts
+    # Load parts and content pieces through the current session
+    parts = (
+        db.query(models.Part)
+        .filter(models.Part.original_work_id == audiobook.original_work_id)
+        .order_by(models.Part.id)
+        .all()
+    )
 
     def stream_parts():
         print(f"Streaming {len(parts)} parts")
@@ -751,11 +757,16 @@ def get_audiobook_content(
                     author_name=current_part.author,
                     content_pieces=[],
                 )
-                for content_piece in current_part.content_pieces:
+                # Load content pieces through the current session
+                content_pieces = (
+                    db.query(models.ContentPiece)
+                    .filter(models.ContentPiece.part_id == current_part.id)
+                    .order_by(models.ContentPiece.id)
+                    .all()
+                )
+                for content_piece in content_pieces:
                     piece = content_piece
-                    performance = piece.get_performance_for_audiobook(
-                        session, audiobook
-                    )
+                    performance = piece.get_performance_for_audiobook(db, audiobook)
                     audio_file_hash = None
                     if performance:
                         audio_file_hash = performance.audio_file_hash
@@ -770,8 +781,6 @@ def get_audiobook_content(
                 yield f"{part_content.model_dump_json()}\n".encode()
         except Exception as e:
             print(f"Streaming error: {e}")
-        finally:
-            session.close()
 
     return StreamingResponse(
         stream_parts(),
@@ -830,7 +839,7 @@ async def generate_progress_events(audiobook_id: int, db: Session):
 
 
 @app.get("/api/audiobooks/{audiobook_id}/generation_progress")
-async def get_generation_progress(audiobook_id: int, db: Session = Depends(get_db)):
+async def get_generation_progress(audiobook_id: int, db: Session = db_dependency):
     """SSE endpoint for monitoring audiobook generation progress"""
     # Verify audiobook exists
     audiobook = db.query(models.Audiobook).filter_by(id=audiobook_id).first()

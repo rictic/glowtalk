@@ -13,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from glowtalk import glowfic_scraper, models
-from glowtalk.api import app, get_sessionmaker
+from glowtalk.api import app, get_db, get_sessionmaker
 from glowtalk.models import Base
 
 # Mock data for our fake glowfic scraper
@@ -116,8 +116,16 @@ def db_sessionmaker(test_cwd):
     def override_get_sessionmaker():
         return TestingSessionLocal
 
-    # Override the dependency in the FastAPI app
+    def override_get_db():
+        session = TestingSessionLocal()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    # Override the dependencies in the FastAPI app
     app.dependency_overrides[get_sessionmaker] = override_get_sessionmaker
+    app.dependency_overrides[get_db] = override_get_db
 
     try:
         yield TestingSessionLocal

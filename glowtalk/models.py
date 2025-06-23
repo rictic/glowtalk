@@ -241,7 +241,7 @@ class Audiobook(Base):
             .join(Part)
             .join(OriginalWork)
             .filter(
-                ContentPiece.should_voice == True,
+                ContentPiece.should_voice,
                 ContentPiece.part_id == Part.id,
                 OriginalWork.id == self.original_work_id,
             )
@@ -376,7 +376,8 @@ class ReferenceVoice(Base):
 
         reference = session.query(cls).filter_by(audio_path=str(audio_path)).first()
         if not reference:
-            audio_hash = hashlib.sha256(open(audio_path, "rb").read()).hexdigest()
+            with open(audio_path, "rb") as f:
+                audio_hash = hashlib.sha256(f.read()).hexdigest()
             reference = cls(
                 name=name,
                 audio_path=str(audio_path),
@@ -455,7 +456,8 @@ class Speaker(Base):
         )
         # normalize the path
         audio_path = audio_path.resolve()
-        audio_hash = hashlib.sha256(open(audio_path, "rb").read()).hexdigest()
+        with open(audio_path, "rb") as f:
+            audio_hash = hashlib.sha256(f.read()).hexdigest()
         performance = VoicePerformance(
             audiobook=audiobook,
             content_piece=content_piece,

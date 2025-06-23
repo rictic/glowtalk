@@ -44,13 +44,13 @@ def initialize_reference_voices(db: Session):
             "transcript": "So diff you have a lot of things in common, but none of 'em's going to work.",
         },
     }
-    for name, info in info.items():
+    for name, voice_info in info.items():
         models.ReferenceVoice.get_or_create(
             db,
             audio_path=Path(os.getcwd()) / "references" / f"{name}.wav",
             name=name,
-            description=info["description"],
-            transcript=info["transcript"],
+            description=voice_info["description"],
+            transcript=voice_info["transcript"],
         )
 
 

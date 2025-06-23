@@ -35,10 +35,10 @@ class WindowsIdleChecker(IdleChecker):
 class LinuxIdleChecker(IdleChecker):
     def __init__(self):
         try:
-            from Xlib import X, display
+            from Xlib import display
             from Xlib.ext import screensaver
-        except ImportError:
-            raise ImportError("Please install python-xlib: pip install python-xlib")
+        except ImportError as e:
+            raise ImportError("Please install python-xlib: pip install python-xlib") from e
 
         self.display = display.Display()
         self.screensaver = self.display.get_extension_data(screensaver.extname)
@@ -59,11 +59,11 @@ class MacIdleChecker(IdleChecker):
                 kCGAnyInputEventType,
                 kCGEventSourceStateHIDSystemState,
             )
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
                 "MacOS-specific features require additional dependencies. "
                 "Please install them with: uv pip install glowtalk[macos]"
-            )
+            ) from e
 
         self.get_idle_time_since_last_event = CGEventSourceSecondsSinceLastEventType
         self.system_state = kCGEventSourceStateHIDSystemState

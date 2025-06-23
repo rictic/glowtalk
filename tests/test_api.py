@@ -1,6 +1,9 @@
 import asyncio
 import json
 
+from collections.abc import AsyncIterator, Iterator
+
+import attr
 import httpx
 import pytest
 
@@ -245,11 +248,6 @@ async def test_audiobook_generation_progress(
         assert final_event["completed"] == queued_items
 
 
-from collections.abc import AsyncIterator, Iterator
-
-import attr
-
-
 class SSEMessageParser:
     def __init__(self, line_iterator: Iterator[str]):
         self._line_iterator = line_iterator
@@ -271,11 +269,10 @@ class SSEMessageParser:
             # just look for the data: line
             if line.startswith("data: "):
                 self._current_message.append(line[6:])
-            elif line == "":  # Empty line marks end of message
-                if self._current_message:  # Only yield if we have collected lines
-                    message = "\n".join(self._current_message)
-                    self._current_message = []
-                    return message
+            elif line == "" and self._current_message:  # Empty line marks end of message and we have collected lines
+                message = "\n".join(self._current_message)
+                self._current_message = []
+                return message
 
         # Handle final message if exists
         if self._current_message:
@@ -303,11 +300,10 @@ class AsyncSSEMessageParser:
             # just look for the data: line
             if line.startswith("data: "):
                 self._current_message.append(line[6:])
-            elif line == "":  # Empty line marks end of message
-                if self._current_message:  # Only yield if we have collected lines
-                    message = "\n".join(self._current_message)
-                    self._current_message = []
-                    return message
+            elif line == "" and self._current_message:  # Empty line marks end of message and we have collected lines
+                message = "\n".join(self._current_message)
+                self._current_message = []
+                return message
 
         # Handle final message if exists
         if self._current_message:

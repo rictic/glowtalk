@@ -51,9 +51,11 @@ class Speaker:
         text: str,
         speaker_wav: Path,
         language="en",
-        output_path=get_unique_filename(),
+        output_path=None,
         **kwargs,
     ) -> Path:
+        if output_path is None:
+            output_path = get_unique_filename()
         # Technically we should split the text into chunks of 250 characters or less,
         # because the model allegedly isn't able to handle longer text.
         # But I haven't noticed any issues with that yet.

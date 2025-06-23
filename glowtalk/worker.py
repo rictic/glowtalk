@@ -164,7 +164,7 @@ class Worker:
                     print(
                         f"Error marking work item as failed: {failure_response.status_code} {failure_response.text}"
                     )
-            except:
+            except Exception:
                 # Don't worry about it, we tried. Probably the API is down.
                 pass
 
@@ -172,8 +172,7 @@ class Worker:
             f"/api/queue/{work_item['id']}/complete/{self.worker_id}", files=files
         )
 
-        if completion_response.status_code != 200:
-            if self.verbose:
-                print(
-                    f"Error completing work item: {completion_response.status_code} {completion_response.text}"
-                )
+        if completion_response.status_code != 200 and self.verbose:
+            print(
+                f"Error completing work item: {completion_response.status_code} {completion_response.text}"
+            )
