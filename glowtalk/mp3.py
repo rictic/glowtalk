@@ -12,19 +12,20 @@ def concat_mp3_files(input_paths: Sequence[pathlib.Path]) -> Iterator[bytes]:
 
     Reads each input path in turn, and yields `bytes` for the frames found.
 
-    The mp3 files must all be encoded with independent frames (no bit reservoir).
-    Raises an error if any frame uses the bit reservoir. This is key to making this
-    low overhead enough to be done on demand for users.
+    The mp3 files must all be encoded with independent frames (no bit
+    reservoir). Raises an error if any frame uses the bit reservoir. This is
+    key to making this low overhead enough to be done on demand for users. You
+    can get an mp3 file without the bit reservoir by encoding it with
+    `lame --nores`.
 
-    All files should have the same MPEG version, sample rate,
-    and channel mode.
+    All files should have the same MPEG version, sample rate, and channel mode.
 
-    Note: VBR headers (Xing/LAME) are stripped from the first frame to prevent duration
-    metadata issues in concatenated files. This may cause some players to initially
-    show incorrect duration until they scan the full file.
+    Note: VBR headers (Xing/LAME) are stripped from the first frame to prevent
+    duration metadata issues in concatenated files. This may cause some players
+    to initially show incorrect duration until they scan the full file.
 
-    This function works in streaming mode - it processes files one at a time and can
-    handle lazy iterables that are only available as needed.
+    This function works in streaming mode - it processes files one at a time
+    and can handle lazy iterables that are only available as needed.
     """
     expected_mpeg_version = None
     expected_sample_rate = None
